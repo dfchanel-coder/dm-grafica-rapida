@@ -247,7 +247,7 @@ En producción puede **alterar tablas con datos reales** en cada deploy/restart.
 - [x] `curl https://www.dulcemimos.com/server.js` → **404** ✅ (verificado en vivo)
 - [x] `curl https://www.dulcemimos.com/api/ordenes` → **401** ✅ (verificado en vivo)
 - [x] `curl -X POST .../api/celulares` sin sesión → **401** ✅ (verificado en vivo)
-- [x] `curl https://www.dulcemimos.com/admin` sin sesión → **redirección a login** ✅
+- [x] `curl https://www.dulcemimos.com/admin` sin sesión → **redirección a login** ✅ (login real con ADMIN_PASSWORD confirmado por el dueño el 2026-10-08)
 - [ ] Token MP nuevo, el viejo revocado — **pendiente del cliente** (mensaje a redactar)
 - [x] Pago de prueba en MP redirige a `www.dulcemimos.com/success` y la orden cambia de estado vía webhook — **webhook implementado y verificado** (falta solo una prueba de pago real con el token rotado del cliente)
 - [ ] HTML estático contiene los productos (sin "Cargando catálogo...") — **decisión SSR/Catálogo indexable (pendiente)**
