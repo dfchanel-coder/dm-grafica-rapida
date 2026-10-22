@@ -26,10 +26,10 @@ export const DEFAULT_SETTINGS = {
     hours: "",
   },
   brand: {
-    primary: "#134E9D",
-    accent: "#7A9A78",
-    ink: "#1F2933",
-    logo_url: "",
+    primary: "#0B3D91",
+    accent: "#F97316",
+    ink: "#0B0F14",
+    logo_url: "/brand/logodm.jpeg",
     favicon_url: "",
   },
   home: {

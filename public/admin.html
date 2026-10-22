@@ -1,12 +1,12 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es-UY">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Panel de administración | DM Gráfica Rápida</title>
-  <meta name="description" content="Panel de administración de DM Gráfica Rápida: pedidos, productos, cotizaciones, consultas y ajustes.">
+  <title>Panel de administraciÃ³n | DM GrÃ¡fica RÃ¡pida</title>
+  <meta name="description" content="Panel de administraciÃ³n de DM GrÃ¡fica RÃ¡pida: pedidos, productos, cotizaciones, consultas y ajustes.">
   <meta name="robots" content="noindex, nofollow, noarchive">
-  <meta name="theme-color" content="#134e9d">
+  <meta name="theme-color" content="#0b3d91">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/css/base.css">
   <link rel="stylesheet" href="/css/admin.css">
@@ -17,7 +17,7 @@
 
   <!-- Arranque: se oculta cuando el panel queda listo -->
   <div class="admin-boot" id="admin-boot">
-    <p class="loading" role="status">Cargando el panel…</p>
+    <p class="loading" role="status">Cargando el panelâ€¦</p>
   </div>
 
   <!-- ============================================================ -->
@@ -25,22 +25,22 @@
   <!-- ============================================================ -->
   <div class="login" id="login-view" hidden>
     <div class="login__card">
-      <p class="login__brand">DM Gráfica Rápida</p>
-      <h1 class="login__title">Iniciar sesión</h1>
-      <p class="login__lead">Acceso restringido al equipo de la gráfica.</p>
+      <p class="login__brand">DM GrÃ¡fica RÃ¡pida</p>
+      <h1 class="login__title">Iniciar sesiÃ³n</h1>
+      <p class="login__lead">Acceso restringido al equipo de la grÃ¡fica.</p>
 
       <div class="alert alert--error" id="login-error" role="alert" hidden></div>
 
       <form id="login-form" novalidate>
         <div class="field">
-          <label class="field__label" for="login-email">Correo electrónico</label>
+          <label class="field__label" for="login-email">Correo electrÃ³nico</label>
           <input class="input" type="email" id="login-email" name="email" autocomplete="username"
                  maxlength="254" required>
           <span class="field__error" data-error-for="login-email"></span>
         </div>
 
         <div class="field">
-          <label class="field__label" for="login-password">Contraseña</label>
+          <label class="field__label" for="login-password">ContraseÃ±a</label>
           <input class="input" type="password" id="login-password" name="password"
                  autocomplete="current-password" required>
           <span class="field__error" data-error-for="login-password"></span>
@@ -49,20 +49,20 @@
         <button class="btn btn--primary btn--block btn--lg" type="submit" id="login-submit">Entrar al panel</button>
       </form>
 
-      <p class="login__foot"><a href="/">← Volver al sitio</a></p>
+      <p class="login__foot"><a href="/">â† Volver al sitio</a></p>
     </div>
   </div>
 
   <!-- ============================================================ -->
-  <!-- Aplicación                                                  -->
+  <!-- AplicaciÃ³n                                                  -->
   <!-- ============================================================ -->
   <div class="admin-layout" id="app-view" hidden>
     <aside class="admin-sidebar" id="admin-sidebar">
       <div class="admin-sidebar__head">
         <span class="admin-sidebar__mark" aria-hidden="true">DM</span>
         <span class="admin-sidebar__text">
-          <span class="admin-sidebar__name">DM Gráfica Rápida</span>
-          <span class="admin-sidebar__role">Administración</span>
+          <span class="admin-sidebar__name">DM GrÃ¡fica RÃ¡pida</span>
+          <span class="admin-sidebar__role">AdministraciÃ³n</span>
         </span>
       </div>
 
@@ -71,18 +71,18 @@
           <li><a class="admin-nav__link" href="#tablero" data-section="tablero">Tablero</a></li>
           <li><a class="admin-nav__link" href="#pedidos" data-section="pedidos">Pedidos</a></li>
           <li><a class="admin-nav__link" href="#productos" data-section="productos">Productos</a></li>
-          <li><a class="admin-nav__link" href="#categorias" data-section="categorias">Categorías</a></li>
+          <li><a class="admin-nav__link" href="#categorias" data-section="categorias">CategorÃ­as</a></li>
           <li><a class="admin-nav__link" href="#consultas" data-section="consultas">Consultas</a></li>
           <li><a class="admin-nav__link" href="#cupones" data-section="cupones">Cupones</a></li>
           <li><a class="admin-nav__link" href="#ajustes" data-section="ajustes">Ajustes</a></li>
           <li><a class="admin-nav__link" href="#correos" data-section="correos">Registro de correos</a></li>
-          <li><a class="admin-nav__link" href="#auditoria" data-section="auditoria">Auditoría</a></li>
+          <li><a class="admin-nav__link" href="#auditoria" data-section="auditoria">AuditorÃ­a</a></li>
           <li><a class="admin-nav__link" href="#administradores" data-section="administradores">Administradores</a></li>
         </ul>
       </nav>
 
       <div class="admin-sidebar__foot">
-        <a class="admin-sidebar__link" href="/" target="_blank" rel="noopener">Ver el sitio ↗</a>
+        <a class="admin-sidebar__link" href="/" target="_blank" rel="noopener">Ver el sitio â†—</a>
       </div>
     </aside>
 
@@ -90,11 +90,11 @@
       <header class="admin-topbar">
         <button class="icon-btn admin-menu-toggle" type="button" id="sidebar-toggle"
                 aria-expanded="false" aria-controls="admin-sidebar">
-          <span class="sr-only">Mostrar u ocultar el menú</span>
-          <span aria-hidden="true">☰</span>
+          <span class="sr-only">Mostrar u ocultar el menÃº</span>
+          <span aria-hidden="true">â˜°</span>
         </button>
 
-        <h1 class="admin-topbar__title">Panel de administración</h1>
+        <h1 class="admin-topbar__title">Panel de administraciÃ³n</h1>
 
         <div class="admin-topbar__user">
           <span class="admin-avatar" id="admin-avatar" aria-hidden="true">DM</span>
@@ -111,7 +111,7 @@
         <section class="admin-section" id="section-tablero" data-section="tablero" hidden aria-labelledby="titulo-tablero">
           <div class="admin-section__head">
             <h2 id="titulo-tablero">Tablero</h2>
-            <p class="admin-section__lead">Un vistazo general de la tienda y lo que falta para abrir al público.</p>
+            <p class="admin-section__lead">Un vistazo general de la tienda y lo que falta para abrir al pÃºblico.</p>
           </div>
           <div class="alert alert--error" role="alert" hidden data-section-error></div>
           <div data-section-body aria-busy="false">
@@ -124,7 +124,7 @@
         <section class="admin-section" id="section-pedidos" data-section="pedidos" hidden aria-labelledby="titulo-pedidos">
           <div class="admin-section__head">
             <h2 id="titulo-pedidos">Pedidos</h2>
-            <p class="admin-section__lead">Revisá, cotizá y actualizá el estado de cada pedido.</p>
+            <p class="admin-section__lead">RevisÃ¡, cotizÃ¡ y actualizÃ¡ el estado de cada pedido.</p>
           </div>
           <div class="alert alert--error" role="alert" hidden data-section-error></div>
           <div data-section-body aria-busy="false">
@@ -137,7 +137,7 @@
         <section class="admin-section" id="section-productos" data-section="productos" hidden aria-labelledby="titulo-productos">
           <div class="admin-section__head">
             <h2 id="titulo-productos">Productos</h2>
-            <p class="admin-section__lead">Cargá el catálogo: precios, fotos, opciones de personalización y SEO.</p>
+            <p class="admin-section__lead">CargÃ¡ el catÃ¡logo: precios, fotos, opciones de personalizaciÃ³n y SEO.</p>
           </div>
           <div class="alert alert--error" role="alert" hidden data-section-error></div>
           <div data-section-body aria-busy="false">
@@ -146,11 +146,11 @@
           </div>
         </section>
 
-        <!-- Categorías -->
+        <!-- CategorÃ­as -->
         <section class="admin-section" id="section-categorias" data-section="categorias" hidden aria-labelledby="titulo-categorias">
           <div class="admin-section__head">
-            <h2 id="titulo-categorias">Categorías</h2>
-            <p class="admin-section__lead">Ordená y nombrá las familias de productos del catálogo.</p>
+            <h2 id="titulo-categorias">CategorÃ­as</h2>
+            <p class="admin-section__lead">OrdenÃ¡ y nombrÃ¡ las familias de productos del catÃ¡logo.</p>
           </div>
           <div class="alert alert--error" role="alert" hidden data-section-error></div>
           <div data-section-body aria-busy="false">
@@ -176,7 +176,7 @@
         <section class="admin-section" id="section-cupones" data-section="cupones" hidden aria-labelledby="titulo-cupones">
           <div class="admin-section__head">
             <h2 id="titulo-cupones">Cupones</h2>
-            <p class="admin-section__lead">Códigos de descuento para el checkout.</p>
+            <p class="admin-section__lead">CÃ³digos de descuento para el checkout.</p>
           </div>
           <div class="alert alert--error" role="alert" hidden data-section-error></div>
           <div data-section-body aria-busy="false">
@@ -189,7 +189,7 @@
         <section class="admin-section" id="section-ajustes" data-section="ajustes" hidden aria-labelledby="titulo-ajustes">
           <div class="admin-section__head">
             <h2 id="titulo-ajustes">Ajustes</h2>
-            <p class="admin-section__lead">Datos del negocio, envíos, impuestos, textos del sitio y colores de marca.</p>
+            <p class="admin-section__lead">Datos del negocio, envÃ­os, impuestos, textos del sitio y colores de marca.</p>
           </div>
           <div class="alert alert--error" role="alert" hidden data-section-error></div>
           <div data-section-body aria-busy="false">
@@ -202,7 +202,7 @@
         <section class="admin-section" id="section-correos" data-section="correos" hidden aria-labelledby="titulo-correos">
           <div class="admin-section__head">
             <h2 id="titulo-correos">Registro de correos</h2>
-            <p class="admin-section__lead">Cada mensaje que el sistema intentó enviar, con su resultado.</p>
+            <p class="admin-section__lead">Cada mensaje que el sistema intentÃ³ enviar, con su resultado.</p>
           </div>
           <div class="alert alert--error" role="alert" hidden data-section-error></div>
           <div data-section-body aria-busy="false">
@@ -211,10 +211,10 @@
           </div>
         </section>
 
-        <!-- Auditoría -->
+        <!-- AuditorÃ­a -->
         <section class="admin-section" id="section-auditoria" data-section="auditoria" hidden aria-labelledby="titulo-auditoria">
           <div class="admin-section__head">
-            <h2 id="titulo-auditoria">Auditoría</h2>
+            <h2 id="titulo-auditoria">AuditorÃ­a</h2>
             <p class="admin-section__lead">Acciones realizadas en el panel, con usuario y fecha.</p>
           </div>
           <div class="alert alert--error" role="alert" hidden data-section-error></div>
@@ -228,7 +228,7 @@
         <section class="admin-section" id="section-administradores" data-section="administradores" hidden aria-labelledby="titulo-administradores">
           <div class="admin-section__head">
             <h2 id="titulo-administradores">Administradores</h2>
-            <p class="admin-section__lead">Quién entra al panel y con qué permisos.</p>
+            <p class="admin-section__lead">QuiÃ©n entra al panel y con quÃ© permisos.</p>
           </div>
           <div class="alert alert--error" role="alert" hidden data-section-error></div>
           <div data-section-body aria-busy="false">
@@ -242,7 +242,7 @@
   </div>
 
   <!-- ============================================================ -->
-  <!-- Modal de confirmación                                        -->
+  <!-- Modal de confirmaciÃ³n                                        -->
   <!-- ============================================================ -->
   <div class="admin-modal" id="admin-modal" hidden>
     <div class="admin-modal__overlay" data-modal-overlay></div>
@@ -255,7 +255,7 @@
         <button class="btn btn--primary" type="button" data-modal-confirm>Confirmar</button>
       </div>
       <button class="admin-modal__close" type="button" data-modal-close aria-label="Cerrar">
-        <span aria-hidden="true">×</span>
+        <span aria-hidden="true">Ã—</span>
       </button>
     </div>
   </div>

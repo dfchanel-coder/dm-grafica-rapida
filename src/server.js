@@ -23,6 +23,7 @@ import { ValidationError, cleanEmail, cleanMultiline, cleanPhone, cleanText } fr
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
 const publicDir = path.resolve(dirname, "../public");
+const brandDir = path.resolve(dirname, "img");
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
@@ -39,10 +40,10 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", "data:", "https://*.supabase.co", "https://*.supabase.in"],
+      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+      imgSrc: ["'self'", "data:", "https://*.supabase.co", "https://*.supabase.in", "https://images.unsplash.com"],
       connectSrc: ["'self'"],
-      fontSrc: ["'self'"],
+      fontSrc: ["'self'", "https://fonts.gstatic.com"],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
       formAction: ["'self'"],
@@ -386,6 +387,8 @@ function escapeHtml(value) {
 }
 
 app.get("/", async (_req, res) => renderPage(res, "index.html"));
+app.get("/pt", async (_req, res) => renderPage(res, "pt/index.html"));
+app.get("/pt/", async (_req, res) => renderPage(res, "pt/index.html"));
 
 app.get("/catalogo", async (_req, res) => renderPage(res, "catalogo.html"));
 
@@ -481,6 +484,7 @@ app.get("/sitemap.xml", async (_req, res) => {
 
   const staticPaths = [
     { loc: "/", priority: "1.0", changefreq: "weekly" },
+    { loc: "/pt/", priority: "0.9", changefreq: "weekly" },
     { loc: "/catalogo", priority: "0.9", changefreq: "weekly" },
     { loc: "/contacto", priority: "0.6", changefreq: "monthly" },
     { loc: "/seguimiento", priority: "0.4", changefreq: "monthly" },
@@ -533,6 +537,17 @@ app.use(express.static(publicDir, {
   setHeaders(res, filePath) {
     if (filePath.endsWith(".html")) res.setHeader("Cache-Control", "no-cache");
     else if (/\.(css|js|svg|woff2?|webp|jpg|jpeg|png)$/i.test(filePath)) {
+      res.setHeader("Cache-Control", "public, max-age=86400");
+    }
+  },
+}));
+
+// Logo y assets de marca que el cliente deja en src/img.
+app.use("/brand", express.static(brandDir, {
+  dotfiles: "deny",
+  index: false,
+  setHeaders(res, filePath) {
+    if (/\.(svg|webp|jpg|jpeg|png|ico)$/i.test(filePath)) {
       res.setHeader("Cache-Control", "public, max-age=86400");
     }
   },

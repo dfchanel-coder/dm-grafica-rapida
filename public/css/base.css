@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700;800&display=swap");
+
 /* ==========================================================================
    DM Gráfica Rápida — sistema base
    Tokens, reset, tipografía, componentes compartidos y pie de página.
@@ -5,21 +7,21 @@
 
 :root {
   /* Marca — el panel de administración puede sobreescribir estos valores. */
-  --color-primary: #134e9d;
-  --color-primary-dark: #0d3a78;
-  --color-primary-soft: #e8eef8;
-  --color-accent: #7a9a78;
-  --color-accent-soft: #eef2ed;
+  --color-primary: #0b3d91;
+  --color-primary-dark: #072a66;
+  --color-primary-soft: #e6ecf7;
+  --color-accent: #f97316;
+  --color-accent-soft: #fde7d3;
 
   /* Neutros */
-  --color-ink: #1f2933;
-  --color-muted: #5b6b7a;
-  --color-faint: #8b98a5;
-  --color-line: #e3e6ea;
-  --color-line-strong: #cfd5dc;
+  --color-ink: #0b0f14;
+  --color-muted: #4b5563;
+  --color-faint: #9ca3af;
+  --color-line: #e5e7eb;
+  --color-line-strong: #d1d5db;
   --color-bg: #ffffff;
-  --color-surface: #f7f8f9;
-  --color-kraft: #e4e1dc;
+  --color-surface: #f4f6f9;
+  --color-kraft: #0f172a;
 
   /* Semánticos */
   --color-success: #1f7a4d;
@@ -52,8 +54,8 @@
   --shadow-lg: 0 16px 40px rgba(31, 41, 51, 0.14);
 
   /* Tipografía */
-  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-display: Georgia, "Times New Roman", "Iowan Old Style", serif;
+  --font-body: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-display: "Playfair Display", Georgia, "Times New Roman", serif;
 
   --container: 1200px;
   --header-height: 68px;
@@ -675,4 +677,136 @@ hr {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+
+/* --- Carrusel hero ------------------------------------------------------ */
+
+.carousel {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  background: var(--color-surface);
+  aspect-ratio: 4 / 3;
+}
+
+.carousel__track {
+  display: flex;
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  height: 100%;
+}
+
+.carousel__slide {
+  min-width: 100%;
+  position: relative;
+  height: 100%;
+}
+
+.carousel__slide img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.carousel__caption {
+  position: absolute;
+  left: var(--space-5);
+  bottom: var(--space-5);
+  right: var(--space-5);
+  color: #fff;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.45);
+}
+
+.carousel__caption h3 {
+  color: #fff;
+  font-size: 1.25rem;
+  margin-bottom: var(--space-1);
+}
+
+.carousel__caption p {
+  margin: 0;
+  font-size: 0.9375rem;
+  opacity: 0.92;
+}
+
+.carousel__dots {
+  position: absolute;
+  bottom: var(--space-3);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: var(--space-2);
+  z-index: 2;
+}
+
+.carousel__dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(255,255,255,0.55);
+  cursor: pointer;
+  padding: 0;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.carousel__dot[aria-current="true"] {
+  background: #fff;
+  transform: scale(1.25);
+}
+
+.carousel__arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 0;
+  background: rgba(11,15,20,0.45);
+  color: #fff;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  z-index: 2;
+  backdrop-filter: blur(4px);
+}
+
+.carousel__arrow:hover { background: rgba(11,15,20,0.7); }
+.carousel__arrow--prev { left: var(--space-3); }
+.carousel__arrow--next { right: var(--space-3); }
+
+@media (max-width: 640px) {
+  .carousel { aspect-ratio: 16 / 10; }
+  .carousel__arrow { display: none; }
+}
+
+
+/* --- Selector de idioma -------------------------------------------------- */
+
+.lang-switch {
+  display: inline-flex;
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  margin-right: var(--space-2);
+}
+
+.lang-switch__btn {
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--color-muted);
+  text-decoration: none;
+  background: var(--color-bg);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.lang-switch__btn:hover { color: var(--color-primary); }
+
+.lang-switch__btn[aria-current="true"] {
+  background: var(--color-primary);
+  color: #fff;
 }

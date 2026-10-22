@@ -54,6 +54,11 @@ function applyBrandColors(data) {
     root.style.setProperty("--color-accent-soft", mix(brand.accent, "#FFFFFF", 0.88));
   }
   if (brand.ink) root.style.setProperty("--color-ink", brand.ink);
+  if (brand.logo_url) {
+    els(".brand__mark").forEach((node) => {
+      node.innerHTML = `<img src="${escapeText(brand.logo_url)}" alt="" width="40" height="40">`;
+    });
+  }
 }
 
 function hexToRgb(hex) {
