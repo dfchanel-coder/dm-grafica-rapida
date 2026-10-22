@@ -1,0 +1,17 @@
+{
+  "categories": [
+    { "slug": "ejemplo", "name": "Categoría de ejemplo", "active": false }
+  ],
+  "products": [
+    {
+      "slug": "producto-de-ejemplo",
+      "name": "Producto de ejemplo",
+      "category": "ejemplo",
+      "price": 0,
+      "currency": "UYU",
+      "active": false,
+      "pricing_mode": "quote",
+      "requires_quote": true
+    }
+  ]
+}

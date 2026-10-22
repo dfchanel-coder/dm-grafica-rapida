@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600" role="img" aria-label="Muestra de trabajos de impresión y personalización">
+  <rect width="800" height="600" fill="#E4E1DC"/>
+
+  <!-- Lote de stickers troquelados -->
+  <g transform="translate(70 90) rotate(-8)">
+    <rect width="210" height="210" rx="18" fill="#FFFFFF" stroke="#D6D1C8" stroke-width="2"/>
+    <circle cx="70" cy="72" r="34" fill="#134E9D"/>
+    <rect x="120" y="44" width="62" height="18" rx="9" fill="#7A9A78"/>
+    <rect x="120" y="70" width="44" height="12" rx="6" fill="#C8CDD3"/>
+    <rect x="34" y="130" width="142" height="14" rx="7" fill="#E4E1DC"/>
+    <rect x="34" y="156" width="100" height="10" rx="5" fill="#D6D1C8"/>
+  </g>
+
+  <!-- Tarjetas de presentación -->
+  <g transform="translate(330 70) rotate(6)">
+    <rect width="190" height="240" rx="12" fill="#134E9D"/>
+    <rect x="24" y="34" width="72" height="12" rx="6" fill="#FFFFFF" opacity="0.9"/>
+    <rect x="24" y="58" width="120" height="8" rx="4" fill="#FFFFFF" opacity="0.45"/>
+    <rect x="24" y="150" width="60" height="60" rx="10" fill="#7A9A78"/>
+  </g>
+
+  <!-- Vaso eco -->
+  <g transform="translate(560 120)">
+    <path d="M20 30h110l-14 180a16 16 0 0 1-16 14H50a16 16 0 0 1-16-14z" fill="#FFFFFF" stroke="#C8CDD3" stroke-width="3"/>
+    <rect x="42" y="96" width="66" height="46" rx="6" fill="#7A9A78"/>
+    <rect x="50" y="108" width="50" height="7" rx="3.5" fill="#FFFFFF" opacity="0.9"/>
+    <rect x="50" y="122" width="34" height="6" rx="3" fill="#FFFFFF" opacity="0.7"/>
+  </g>
+
+  <!-- Sello mecánico -->
+  <g transform="translate(120 390) rotate(-4)">
+    <rect width="150" height="110" rx="10" fill="#FFFFFF" stroke="#D6D1C8" stroke-width="2"/>
+    <rect x="22" y="22" width="106" height="30" rx="6" fill="#134E9D" opacity="0.85"/>
+    <rect x="22" y="64" width="70" height="9" rx="4.5" fill="#C8CDD3"/>
+    <rect x="22" y="82" width="46" height="9" rx="4.5" fill="#D6D1C8"/>
+  </g>
+
+  <!-- Vinilo adhesionado -->
+  <g transform="translate(320 380)">
+    <rect width="260" height="140" rx="12" fill="#FFFFFF" stroke="#D6D1C8" stroke-width="2"/>
+    <path d="M46 100V44l26-14 26 14v56z" fill="#134E9D"/>
+    <circle cx="72" cy="66" r="12" fill="#E4E1DC"/>
+    <rect x="120" y="48" width="104" height="12" rx="6" fill="#7A9A78"/>
+    <rect x="120" y="70" width="76" height="9" rx="4.5" fill="#C8CDD3"/>
+    <rect x="120" y="86" width="90" height="9" rx="4.5" fill="#D6D1C8"/>
+  </g>
+
+  <!-- Uniforme / remeras -->
+  <g transform="translate(610 400)">
+    <path d="M30 20l30-16h60l30 16 22 46-34 16-12-22v100H54V60l-12 22-34-16z" fill="#FFFFFF" stroke="#C8CDD3" stroke-width="3"/>
+    <rect x="66" y="56" width="78" height="26" rx="6" fill="#134E9D" opacity="0.85"/>
+  </g>
+
+  <text x="400" y="560" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="22" fill="#6B7785">
+    Tu marca lo merece, nosotros lo hacemos posible
+  </text>
+</svg>

@@ -1,0 +1,29 @@
+{
+  "name": "dm-grafica-rapida",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/run-migrations.js && node src/server.js",
+    "dev": "node --watch src/server.js",
+    "migrate": "node src/run-migrations.js",
+    "admin:create": "node scripts/create-admin.js",
+    "catalog:import": "node scripts/import-products.js",
+    "check:text": "node scripts/check-text.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.1.0",
+    "helmet": "^8.1.0",
+    "multer": "^2.0.2",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.11"
+  }
+}

@@ -1,0 +1,60 @@
+# Render Blueprint — DM Gráfica Rápida
+# Render crea la base y el servicio juntos desde este archivo.
+# Documentación: https://render.com/docs/blueprint-spec
+
+databases:
+  - name: dm-grafica-rapida-db
+    plan: basic-256mb
+    region: virginia
+
+services:
+  - type: web
+    name: dm-grafica-rapida
+    runtime: node
+    # Servicio persistente con migraciones previas al despliegue.
+    plan: starter
+    region: virginia
+    buildCommand: npm ci --omit=dev
+    startCommand: node src/server.js
+    preDeployCommand: npm run migrate
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: dm-grafica-rapida-db
+          property: connectionString
+      - key: PG_POOL_MAX
+        value: "8"
+      # Dominio propio en producción. Sin barra final.
+      - key: PUBLIC_BASE_URL
+        sync: false
+      # --- Mercado Pago ---
+      # Empezar con sandbox. Cambiar a "production" solo después de verificar
+      # el sitio con Mercado Pago y publicar las políticas legales.
+      - key: MERCADOPAGO_MODE
+        value: sandbox
+      - key: MERCADOPAGO_ACCESS_TOKEN
+        sync: false
+      - key: MERCADOPAGO_WEBHOOK_SECRET
+        sync: false
+      # Mantener apagado hasta probar compra, webhook y correo.
+      - key: CHECKOUT_ENABLED
+        value: "false"
+      # --- Emails ---
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: ADMIN_NOTIFICATION_EMAIL
+        sync: false
+      # --- Supabase Storage ---
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_BUCKET
+        value: productos

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es-UY">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Finalizar compra | DM Gráfica Rápida</title>
+  <meta name="description" content="Completá tus datos y pagá con Mercado Pago. No necesitás crear cuenta.">
+  <meta name="theme-color" content="#134e9d">
+  <link rel="canonical" href="/checkout">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/base.css">
+  <link rel="stylesheet" href="/css/tienda.css">
+</head>
+<body>
+  <a class="skip-link" href="#contenido">Saltar al contenido principal</a>
+
+  <div class="announcement" data-announcement role="region" aria-label="Aviso destacado"></div>
+
+  <header class="site-header">
+    <div class="container site-header__inner">
+      <a class="brand" href="/">
+        <span class="brand__mark" aria-hidden="true">DM</span>
+        <span class="brand__text">
+          <span class="brand__name" data-business-name>DM Gráfica Rápida</span>
+          <span class="brand__tagline" data-business-tagline>Gráfica &amp; Merchandising</span>
+        </span>
+      </a>
+
+      <nav class="site-nav" id="site-nav" aria-label="Navegación principal">
+        <a class="site-nav__link" href="/catalogo">Catálogo</a>
+        <a class="site-nav__link" href="/#nosotros">Nosotros</a>
+        <a class="site-nav__link" href="/#como-trabajamos">Cómo trabajamos</a>
+        <a class="site-nav__link" href="/contacto">Contacto</a>
+        <a class="site-nav__link" href="/seguimiento">Seguir mi pedido</a>
+      </nav>
+
+      <div class="header-actions">
+        <a class="icon-btn" href="/carrito" data-cart-label aria-label="Ver el carrito">
+          <svg width="21" height="21" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="9" cy="20" r="1.4"></circle>
+            <circle cx="18" cy="20" r="1.4"></circle>
+            <path d="M2 3h2.2l2.4 12.2a1.8 1.8 0 0 0 1.8 1.5h9.4a1.8 1.8 0 0 0 1.8-1.4L21 7H6"></path>
+          </svg>
+          <span class="icon-btn__badge" data-cart-count data-count="0">0</span>
+        </a>
+        <button class="icon-btn menu-toggle" type="button" data-menu-toggle aria-expanded="false" aria-controls="site-nav" aria-label="Abrir el menú">
+          <svg width="21" height="21" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <path d="M3 6h18M3 12h18M3 18h18"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main id="contenido">
+    <section class="section section--tight">
+      <div class="container">
+        <h1>Finalizar compra</h1>
+        <p class="lead" style="margin-bottom:24px;">
+          No necesitás crear cuenta: completá tus datos, pagá con Mercado Pago y te damos un código para seguir tu pedido.
+        </p>
+
+        <div data-checkout-root>
+          <p class="loading">Cargando…</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <div class="site-footer__grid">
+        <div>
+          <h3>DM Gráfica Rápida</h3>
+          <address class="site-footer__address">
+            <span data-business-address></span><br>
+            <a data-business-whatsapp href="https://wa.me/59895010244"><span data-whatsapp-label>WhatsApp 095 010 244</span></a>
+          </address>
+        </div>
+        <div>
+          <h3>Tienda</h3>
+          <ul>
+            <li><a href="/catalogo">Catálogo</a></li>
+            <li><a href="/carrito">Mi carrito</a></li>
+            <li><a href="/seguimiento">Seguir mi pedido</a></li>
+            <li><a href="/contacto">Contacto</a></li>
+          </ul>
+        </div>
+        <div>
+          <h3>Ayuda</h3>
+          <ul>
+            <li><a href="/condiciones">Condiciones de venta</a></li>
+            <li><a href="/privacidad">Privacidad</a></li>
+            <li><a href="/#como-trabajamos">Cómo trabajamos</a></li>
+          </ul>
+        </div>
+        <div>
+          <h3>Redes</h3>
+          <ul>
+            <li><a data-business-instagram href="https://www.instagram.com/dmcomunicacionvisual.uy/" target="_blank" rel="noopener noreferrer">Instagram</a></li>
+            <li><a data-business-facebook href="https://www.facebook.com/DMimpresos/" target="_blank" rel="noopener noreferrer">Facebook</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="site-footer__bottom">
+        <span>© <span data-year>2026</span> DM Gráfica Rápida. Todos los derechos reservados.</span>
+        <span class="signature">Desarrollado por <a href="https://www.fbinformaticauy.com" target="_blank" rel="noopener noreferrer">FB Informática</a></span>
+      </div>
+    </div>
+  </footer>
+
+  <script type="module" src="/js/tienda.js"></script>
+  <script type="module" src="/js/checkout.js"></script>
+</body>
+</html>

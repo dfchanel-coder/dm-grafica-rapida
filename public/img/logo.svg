@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 72" role="img" aria-label="DM Gráfica Rápida">
+  <rect x="0" y="8" width="56" height="56" rx="12" fill="#134E9D"/>
+  <path d="M0 40c7 0 7-4 14-4s7 4 14 4 7-4 14-4 7 4 14 4v28H0z" fill="#7A9A78" opacity="0.55"/>
+  <text x="28" y="45" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="24" font-weight="700" fill="#FFFFFF">DM</text>
+  <text x="72" y="36" font-family="Georgia, 'Times New Roman', serif" font-size="24" font-weight="700" fill="#134E9D">DM Gráfica</text>
+  <text x="72" y="58" font-family="Helvetica, Arial, sans-serif" font-size="13" letter-spacing="3.2" fill="#6B7785">RÁPIDA</text>
+</svg>
