@@ -101,7 +101,7 @@ export async function createPreference({ order, customer }) {
         name: customer.name.slice(0, 120),
         email: customer.email,
       },
-      statement_descriptor: "DM GRAFICA RAPIDA",
+      statement_descriptor: "DM COMUNICACION VISUAL",
       metadata: { order_id: order.id, order_code: order.code },
     }),
   });
