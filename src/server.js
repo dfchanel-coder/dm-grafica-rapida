@@ -8,6 +8,7 @@ import express from "express";
 import rateLimit from "express-rate-limit";
 import helmet from "helmet";
 import multer from "multer";
+import { assetVersion, versionAssetLinks } from "./assets.js";
 
 import { pool } from "./db.js";
 import { getSettings, toPublicSettings } from "./settings.js";
@@ -24,6 +25,7 @@ const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
 const publicDir = path.resolve(dirname, "../public");
 const brandDir = path.resolve(dirname, "img");
+const assetsVersion = await assetVersion([publicDir, brandDir]);
 
 const app = express();
 const port = Number(process.env.PORT || 3000);
@@ -383,7 +385,7 @@ async function renderPage(res, file, seo = {}) {
   }
 
   res.set("Cache-Control", "no-store");
-  return res.send(html);
+  return res.send(versionAssetLinks(html, assetsVersion));
 }
 
 function escapeHtml(value) {
@@ -539,13 +541,20 @@ function escapeXml(value) {
 
 app.use("/api", (_req, res) => res.status(404).json({ error: "Ruta de API no encontrada." }));
 
+// Solo la versión actual obtiene caché larga; nunca servir contenido nuevo
+// bajo una URL vieja marcada como inmutable.
+const immutableAssets = { dotfiles: "deny", index: false, maxAge: "1y", immutable: true };
+app.use(`/assets/${assetsVersion}/brand`, express.static(brandDir, immutableAssets));
+app.use(`/assets/${assetsVersion}`, express.static(publicDir, immutableAssets));
+app.use("/assets", (_req, res) => res.status(404).set("Cache-Control", "no-store").end());
+
 app.use(express.static(publicDir, {
   dotfiles: "deny",
   index: false,
   setHeaders(res, filePath) {
     if (filePath.endsWith(".html")) res.setHeader("Cache-Control", "no-cache");
     else if (/\.(css|js|svg|woff2?|webp|jpg|jpeg|png)$/i.test(filePath)) {
-      res.setHeader("Cache-Control", "public, max-age=86400");
+      res.setHeader("Cache-Control", "public, no-cache");
     }
   },
 }));
@@ -556,7 +565,7 @@ app.use("/brand", express.static(brandDir, {
   index: false,
   setHeaders(res, filePath) {
     if (/\.(svg|webp|jpg|jpeg|png|ico)$/i.test(filePath)) {
-      res.setHeader("Cache-Control", "public, max-age=86400");
+      res.setHeader("Cache-Control", "public, no-cache");
     }
   },
 }));

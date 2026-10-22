@@ -199,6 +199,24 @@ export async function applyPayment(payment, { onPaid, onStatusChange } = {}) {
     }
 
     if (paymentStatus === "approved") {
+      // El uso se consume al confirmar el pago y bajo el mismo bloqueo del pedido.
+      // El UPDATE condicional serializa pagos concurrentes del último cupón.
+      if (order.coupon_code) {
+        const consumed = await client.query(
+          `UPDATE coupons SET used_count = used_count + 1, updated_at = NOW()
+           WHERE upper(code) = upper($1) AND (max_uses IS NULL OR used_count < max_uses)
+           RETURNING id`, [order.coupon_code],
+        );
+        if (!consumed.rowCount) {
+          await client.query(
+            `UPDATE orders SET status = 'review', payment_status = $2, mp_payment_id = $3,
+             updated_at = NOW() WHERE id = $1`, [orderId, paymentStatus, paymentId],
+          );
+          await client.query("COMMIT");
+          if (onStatusChange) await onStatusChange(orderId, "review");
+          return "review";
+        }
+      }
       await client.query(
         `UPDATE orders
             SET status = 'paid', payment_status = 'approved', mp_payment_id = $2,

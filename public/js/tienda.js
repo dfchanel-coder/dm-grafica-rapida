@@ -56,8 +56,11 @@ function applyBrandColors(data) {
   if (brand.ink) root.style.setProperty("--color-ink", brand.ink);
   if (brand.logo_url) {
     // Assign the URL as a DOM property, never interpolate settings into HTML.
-    const logoUrl = brand.logo_url === "/brand/logodm.jpeg" ? "/img/logo.svg" : brand.logo_url;
-    els("img.brand__logo").forEach((node) => { node.src = logoUrl; });
+    els("img.brand__logo").forEach((node) => {
+      // Conserva la URL versionada si ya muestra el logo configurado.
+      const currentPath = new URL(node.src, location.origin).pathname.replace(/^\/assets\/[^/]+/, "");
+      if (currentPath !== brand.logo_url) node.src = brand.logo_url;
+    });
   }
 }
 

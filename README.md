@@ -1,9 +1,9 @@
-# DM Gráfica Rápida — Tienda online
+# DM Comunicación Visual — Tienda online
 
 Tienda con catálogo, carrito, checkout de invitado (sin registro), pago con **Mercado Pago**,
 cotización de trabajos a medida, correos transaccionales y **panel de administración completo**.
 
-- **Negocio:** DM Gráfica Rápida / DM Comunicación Visual / DM Impresos — Rivera, Uruguay
+- **Negocio:** DM Comunicación Visual / DM Comunicación Visual / DM Impresos — Rivera, Uruguay
 - **Compras:** sin cuenta de cliente. Cada pedido tiene un código (DMR-XXXXXX) y se sigue con
   código + correo.
 - **Stack:** Node.js 22+ · Express 5 · PostgreSQL · HTML + CSS + JS nativo (sin build, sin framework)
@@ -169,7 +169,7 @@ El correo de "pedido nuevo" incluye un enlace directo al pedido:
 2. Resend muestra los registros **SPF** y **DKIM** que hay que crear en el DNS del dominio.
 3. Copiá el API key en `RESEND_API_KEY`.
 4. `EMAIL_FROM` debe usar un remitente del dominio verificado, por ejemplo
-   `DM Gráfica Rápida <notificaciones@dmgraficarapida.com.uy>`.
+   `DM Comunicación Visual <notificaciones@dmgraficarapida.com.uy>`.
 5. `ADMIN_NOTIFICATION_EMAIL` es la dirección que recibe el aviso de cada pedido nuevo.
 
 Los correos que envía el sitio: confirmación de pedido (al cliente), estado del pedido (al cliente),
@@ -281,3 +281,11 @@ dm-grafica-rapida/
 - [ ] Publicar `/condiciones` y `/privacidad` (requisito de Mercado Pago).
 - [ ] Crear el usuario administrador **definitivo** y desactivar los de prueba.
 - [ ] Revisar que `CHECKOUT_ENABLED=true` recién cuando todo lo anterior esté listo.
+
+## Recursos estáticos y cupones
+
+El servidor calcula una versión del contenido de `public/` y `src/img/` al arrancar. Las páginas enlazan CSS, JavaScript e imágenes locales bajo `/assets/<versión>/`; los imports relativos comparten esa versión. Estas URLs usan caché inmutable y las URLs sin versión revalidan con el servidor. Reiniciá el servidor después de editar recursos para generar su nueva versión. El despliegue de Render ya lo reinicia.
+
+Los cupones consumen un uso al confirmar el pago, dentro de la misma transacción. Los pedidos abandonados no consumen usos y los webhooks repetidos no duplican el conteo. Si un pago llega después de agotarse o eliminarse su cupón, el pedido queda en revisión manual: comprobar el cobro en Mercado Pago y resolver con el cliente antes de producir. Los reembolsos no liberan usos. La migración `0008` recalcula el contador histórico según pedidos con pago confirmado; ejecutar las migraciones antes de arrancar esta versión.
+
+El administrador puede editar opciones de producto con formularios, conservando los identificadores de opciones y valores existentes. Los precios actuales quedan a cargo del administrador.

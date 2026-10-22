@@ -259,10 +259,6 @@ export async function createOrder({ customer, items, delivery, notes = "", coupo
       );
     }
 
-    if (couponInfo?.coupon) {
-      await client.query("UPDATE coupons SET used_count = used_count + 1 WHERE id = $1", [couponInfo.coupon.id]);
-    }
-
     await client.query("COMMIT");
   } catch (error) {
     await client.query("ROLLBACK");
