@@ -143,7 +143,16 @@ function applyHomeCopy(data) {
   const home = data?.home;
   if (!home) return;
 
-  els("[data-hero-title]").forEach((node) => { node.textContent = home.hero_title || ""; });
+  els("[data-hero-title]").forEach((node) => {
+    const title = home.hero_title || "";
+    const parts = title.trim().split(/\s+/).filter(Boolean);
+    if (parts.length > 1) {
+      const last = parts.pop();
+      node.innerHTML = `${escapeText(parts.join(" "))} <span class="accent">${escapeText(last)}</span>`;
+    } else {
+      node.textContent = title;
+    }
+  });
   els("[data-hero-subtitle]").forEach((node) => { node.textContent = home.hero_subtitle || ""; });
 
   const cta = el("[data-hero-cta]");

@@ -5,28 +5,82 @@
 /* --- Héroe -------------------------------------------------------------- */
 
 .hero {
-  background: linear-gradient(180deg, var(--color-primary-soft) 0%, var(--color-bg) 100%);
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(1200px 600px at 85% -10%, rgba(249, 115, 22, 0.18), transparent 60%),
+    radial-gradient(900px 500px at -10% 20%, rgba(11, 61, 145, 0.18), transparent 60%),
+    linear-gradient(180deg, #0b0f14 0%, #0f1a33 45%, #ffffff 100%);
+  color: #fff;
   border-bottom: 1px solid var(--color-line);
 }
 
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+  pointer-events: none;
+}
+
 .hero__inner {
+  position: relative;
   display: grid;
   grid-template-columns: 1.05fr 0.95fr;
   gap: var(--space-12);
   align-items: center;
-  padding-block: var(--space-16);
+  padding-block: var(--space-20);
+}
+
+.hero__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.16);
+  color: #cbd5e1;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  backdrop-filter: blur(6px);
+  margin-bottom: var(--space-5);
+}
+
+.hero__eyebrow::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  box-shadow: 0 0 12px var(--color-accent);
 }
 
 .hero__title {
-  font-size: clamp(2.25rem, 1.5rem + 3.2vw, 3.5rem);
-  margin-bottom: var(--space-4);
+  font-size: clamp(2.5rem, 1.6rem + 3.6vw, 4.25rem);
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+  margin-bottom: var(--space-5);
+  color: #fff;
+}
+
+.hero__title .accent {
+  background: linear-gradient(120deg, #f97316, #fb923c);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .hero__text {
-  font-size: 1.0625rem;
-  color: var(--color-muted);
-  max-width: 54ch;
-  margin-bottom: var(--space-6);
+  font-size: 1.125rem;
+  color: #cbd5e1;
+  max-width: 56ch;
+  margin-bottom: var(--space-8);
+  line-height: 1.7;
 }
 
 .hero__actions {
@@ -35,19 +89,43 @@
   gap: var(--space-3);
 }
 
+.hero__actions .btn--secondary {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.22);
+  color: #fff;
+}
+
+.hero__actions .btn--secondary:hover {
+  background: rgba(255,255,255,0.16);
+  color: #fff;
+  border-color: rgba(255,255,255,0.4);
+}
+
 .hero__figure {
-  border-radius: var(--radius-lg);
+  border-radius: 24px;
   overflow: hidden;
   background: var(--color-kraft);
-  box-shadow: var(--shadow);
+  box-shadow: 0 40px 80px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.08);
   aspect-ratio: 4 / 3;
+  position: relative;
+}
+
+.hero__figure::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 50%, rgba(11,15,20,0.55) 100%);
+  pointer-events: none;
 }
 
 .hero__figure img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: transform 6s ease;
 }
+
+.hero__figure:hover img { transform: scale(1.06); }
 
 /* --- Rejilla de productos ------------------------------------------------ */
 
@@ -60,17 +138,26 @@
 .product-card {
   display: flex;
   flex-direction: column;
-  background: var(--color-bg);
-  border: 1px solid var(--color-line);
-  border-radius: var(--radius);
+  background: #fff;
+  border: 1px solid rgba(11, 61, 145, 0.06);
+  border-radius: 20px;
   overflow: hidden;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  box-shadow: 0 4px 20px rgba(11, 15, 20, 0.04);
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease, border-color 0.35s ease;
 }
 
 .product-card:hover {
-  border-color: var(--color-line-strong);
-  box-shadow: var(--shadow);
-  transform: translateY(-2px);
+  transform: translateY(-8px);
+  box-shadow: 0 24px 48px rgba(11, 61, 145, 0.14);
+  border-color: rgba(249, 115, 22, 0.35);
+}
+
+.product-card__media img {
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.product-card:hover .product-card__media img {
+  transform: scale(1.08);
 }
 
 .product-card__media {
@@ -966,3 +1053,48 @@
   .cart-table td { border: 0; padding: 0; }
   .cart-table td[data-label="Total"] { grid-column: 2; }
 }
+
+
+/* --- Reveal on scroll ---------------------------------------------------- */
+
+.reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+}
+
+/* --- Secciones modernas -------------------------------------------------- */
+
+.section__head h2 {
+  font-size: clamp(1.75rem, 1.3rem + 1.8vw, 2.5rem);
+  letter-spacing: -0.02em;
+}
+
+.eyebrow {
+  color: var(--color-accent);
+  font-weight: 700;
+}
+
+.section--surface {
+  background: linear-gradient(180deg, #f4f6f9 0%, #ffffff 100%);
+}
+
+.section--kraft {
+  background: linear-gradient(135deg, #0b0f14 0%, #1e293b 100%);
+  color: #e2e8f0;
+}
+
+.section--kraft h2,
+.section--kraft .eyebrow,
+.section--kraft .lead { color: #fff; }
+.section--kraft .lead { color: #cbd5e1; }
+.section--kraft .contact-list__icon { background: rgba(249,115,22,0.15); color: var(--color-accent); }
