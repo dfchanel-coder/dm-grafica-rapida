@@ -29,7 +29,7 @@ export const DEFAULT_SETTINGS = {
     primary: "#0B3D91",
     accent: "#F97316",
     ink: "#0B0F14",
-    logo_url: "/brand/logodm.jpeg",
+    logo_url: "/img/logo.svg",
     favicon_url: "",
   },
   home: {

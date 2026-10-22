@@ -55,11 +55,13 @@ function applyBrandColors(data) {
   }
   if (brand.ink) root.style.setProperty("--color-ink", brand.ink);
   if (brand.logo_url) {
+    // La imagen histórica incluye contacto y fondo; el encabezado usa el logo del admin.
+    const logoUrl = brand.logo_url === "/brand/logodm.jpeg" ? "/img/logo.svg" : brand.logo_url;
     // Assign the URL as a DOM property, never interpolate settings into HTML.
     els("img.brand__logo").forEach((node) => {
       // Conserva la URL versionada si ya muestra el logo configurado.
       const currentPath = new URL(node.src, location.origin).pathname.replace(/^\/assets\/[^/]+/, "");
-      if (currentPath !== brand.logo_url) node.src = brand.logo_url;
+      if (currentPath !== logoUrl) node.src = logoUrl;
     });
   }
 }
