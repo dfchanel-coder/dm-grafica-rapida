@@ -8,6 +8,11 @@ import { el, clear, toast } from "./ui.js";
 
 const form = el("[data-contact-form]");
 const feedback = el("[data-contact-feedback]");
+const requestedSubject = new URLSearchParams(window.location.search).get("asunto");
+if (requestedSubject && form) {
+  const subject = el("#asunto", form);
+  if (subject) subject.value = requestedSubject.slice(0, 160);
+}
 
 function showFeedback(message, type = "success") {
   if (!feedback) return;

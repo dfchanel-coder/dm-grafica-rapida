@@ -79,7 +79,7 @@ export async function createPreference({ order, customer }) {
   // envío, impuestos o el importe de una cotización al crear el checkout.
   const mpItems = [{
     id: order.id,
-    title: `Pedido ${order.code} — DM Gráfica Rápida`,
+    title: `Pedido ${order.code} — DM Comunicación Visual`,
     quantity: 1,
     currency_id: order.currency || "UYU",
     unit_price: total,

@@ -55,9 +55,9 @@ function applyBrandColors(data) {
   }
   if (brand.ink) root.style.setProperty("--color-ink", brand.ink);
   if (brand.logo_url) {
-    els(".brand__mark").forEach((node) => {
-      node.innerHTML = `<img src="${escapeText(brand.logo_url)}" alt="" width="40" height="40">`;
-    });
+    // Assign the URL as a DOM property, never interpolate settings into HTML.
+    const logoUrl = brand.logo_url === "/brand/logodm.jpeg" ? "/img/logo.svg" : brand.logo_url;
+    els("img.brand__logo").forEach((node) => { node.src = logoUrl; });
   }
 }
 
@@ -97,8 +97,8 @@ function applyBusinessData(data) {
   els("[data-business-address]").forEach((node) => {
     node.innerHTML = [
       escapeText(business.address),
-      [business.city, business.postal_code].filter(Boolean).join(", "),
-      business.country,
+      escapeText([business.city, business.postal_code].filter(Boolean).join(", ")),
+      escapeText(business.country),
     ].filter(Boolean).join("<br>");
   });
   els("[data-business-phone]").forEach((node) => { node.textContent = business.phone || ""; });
@@ -145,6 +145,8 @@ function applyHomeCopy(data) {
 
   els("[data-hero-title]").forEach((node) => {
     const title = home.hero_title || "";
+    // Keep the designed line breaks and emphasis for the default headline.
+    if (!title || ["Tu marca, hecha posible", "Hacemos que te vean."].includes(title)) return;
     const parts = title.trim().split(/\s+/).filter(Boolean);
     if (parts.length > 1) {
       const last = parts.pop();
@@ -279,14 +281,12 @@ async function boot() {
   document.dispatchEvent(new CustomEvent("tienda:ready", { detail: settings.current }));
 }
 
+const ready = document.readyState === "loading"
+  ? new Promise((resolve) => document.addEventListener("DOMContentLoaded", resolve, { once: true })).then(boot)
+  : boot();
+
 export const Tienda = {
   get settings() { return settings.current; },
-  ready: boot(),
+  ready,
   toast,
 };
-
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", boot, { once: true });
-} else {
-  boot();
-}

@@ -4,14 +4,14 @@ import { pool } from "./db.js";
  * Ajustes del sitio. Un único documento JSON bajo la clave "site".
  * El administrador los edita desde el panel y se aplican en caliente.
  *
- * Los valores por defecto ya cargan los datos verificados de DM Gráfica
- * Rápida (Rivera). Lo que no está verificado queda vacío a propósito:
+ * Los valores por defecto ya cargan los datos verificados de DM Comunicación
+ * Visual (Rivera). Lo que no está verificado queda vacío a propósito:
  * no se inventa información comercial.
  */
 export const DEFAULT_SETTINGS = {
   business: {
-    name: "DM Gráfica Rápida",
-    tagline: "Gráfica & Merchandising",
+    name: "DM Comunicación Visual",
+    tagline: "Hacemos que te vean.",
     legal_name: "",
     whatsapp: "59895010244",
     email: "",
@@ -34,15 +34,15 @@ export const DEFAULT_SETTINGS = {
   },
   home: {
     announcement: "",
-    hero_title: "Tu marca, hecha posible",
+    hero_title: "Hacemos que te vean.",
     hero_subtitle:
-      "Personalización para negocios: stickers, sellos, vinilos, vasos, papelería y merchandising. Materiales clásicos y ecológicos, con diseño propio.",
-    hero_cta: "Ver el catálogo",
+      "Tu identidad, en cada detalle.",
+    hero_cta: "Explorar productos",
     hero_cta_link: "/catalogo",
     hero_image: "",
-    about_title: "Personalización para negocios",
+    about_title: "Tu identidad, en cada detalle.",
     about_text:
-      "En DM Gráfica Rápida hacemos que tu marca lo merece, nosotros lo hacemos posible. Trabajamos con materiales clásicos y ecológicos, diseños propios y entregas para todo el país.",
+      "En DM Comunicación Visual hacemos que tu marca se vea. Trabajamos con materiales clásicos y ecológicos, diseños propios y entregas para todo el país.",
     how_title: "Cómo trabajamos",
     how_steps: [
       { title: "Elegís el producto", text: "Revisá el catálogo y pedí la cotización de lo que necesitás." },
@@ -73,7 +73,7 @@ export const DEFAULT_SETTINGS = {
   },
   footer: {
     note: "",
-    copyright_name: "DM Gráfica Rápida",
+    copyright_name: "DM Comunicación Visual",
   },
 };
 

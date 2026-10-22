@@ -27,14 +27,14 @@ function layout({ title, preheader = "", body }) {
 <tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid ${BRAND.line};">
 <tr><td style="padding:22px 28px;border-bottom:3px solid ${BRAND.primary};">
-  <span style="font-size:18px;font-weight:700;letter-spacing:-0.2px;color:${BRAND.primary};">DM Gráfica Rápida</span>
+  <span style="font-size:18px;font-weight:700;letter-spacing:-0.2px;color:${BRAND.primary};">DM Comunicación Visual</span>
   <span style="font-size:12px;color:${BRAND.muted};margin-left:8px;">Gráfica &amp; Merchandising</span>
 </td></tr>
 <tr><td style="padding:28px;font-size:15px;line-height:1.6;">
 ${body}
 </td></tr>
 <tr><td style="padding:18px 28px;background:${BRAND.background};border-top:1px solid ${BRAND.line};font-size:12px;color:${BRAND.muted};line-height:1.6;">
-  DM Gráfica Rápida · Artigas 1636 Piso 1, Rivera, Uruguay<br>
+  DM Comunicación Visual · Artigas 1636 Piso 1, Rivera, Uruguay<br>
   <a href="https://www.instagram.com/dmcomunicacionvisual.uy/" style="color:${BRAND.muted};">Instagram</a>
   · <a href="https://www.facebook.com/DMimpresos/" style="color:${BRAND.muted};">Facebook</a>
   · <a href="https://wa.me/59895010244" style="color:${BRAND.muted};">WhatsApp 095 010 244</a>
@@ -134,7 +134,7 @@ export function orderConfirmationCustomer({ order, items, business = {} }) {
   `;
 
   return {
-    subject: `Pedido ${order.code} recibido — DM Gráfica Rápida`,
+    subject: `Pedido ${order.code} recibido — DM Comunicación Visual`,
     html: layout({ title: `Pedido ${order.code}`, preheader: "Recibimos tu pedido y ya estamos trabajando en él.", body }),
     text: `Recibimos tu pedido ${order.code}. Total: ${money(order.total, order.currency)}. Seguimiento: ${publicUrl()}/seguimiento?code=${order.code}`,
   };

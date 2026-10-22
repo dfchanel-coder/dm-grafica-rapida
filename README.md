@@ -22,7 +22,6 @@ Completá `.env` como mínimo con:
 ```env
 DATABASE_URL=postgresql://usuario:clave@localhost:5432/dm_grafica
 PUBLIC_BASE_URL=http://localhost:3000
-SESSION_SECRET=<cadena aleatoria de 32+ caracteres>
 ```
 
 Luego:
@@ -45,7 +44,7 @@ El panel queda en **http://localhost:3000/admin**.
 | `npm run admin:create` | Crea o restablece un administrador. |
 | `npm run catalog:import` | Importa un catálogo JSON a la base de datos. |
 | `npm run check:text` | Revisa que los textos estén en UTF-8 y sin caracteres corruptos. |
-| `npm test` | Pruebas unitarias (`node:test`). |
+| `npm test` | Pruebas unitarias y de integración SQL con PostgreSQL en memoria (PGlite). |
 
 ---
 
@@ -56,10 +55,10 @@ El panel queda en **http://localhost:3000/admin**.
 | `NODE_ENV` | `development` / `production` | No |
 | `PORT` | Puerto del servidor (3000 por defecto) | No |
 | `DATABASE_URL` | Conexión a PostgreSQL | **Sí** |
-| `DATABASE_SSL` | `true` solo si la base está fuera de Render | No |
+| `DATABASE_SSL` | `true` cuando el proveedor requiere TLS; se verifica su certificado | No |
+| `DATABASE_SSL_CA` | Certificado PEM del proveedor si usa una CA propia (saltos como `\n`) | No |
 | `PG_POOL_MAX` | Conexiones máximas del pool | No |
 | `PUBLIC_BASE_URL` | URL pública del sitio, sin barra final. Define URLs canónicas, sitemap y los links del correo al panel | **Sí** |
-| `SESSION_SECRET` | Firma las cookies de sesión del panel | **Sí** |
 | `MERCADOPAGO_MODE` | `sandbox` o `production` | **Sí** |
 | `MERCADOPAGO_ACCESS_TOKEN` | Token de la app de Mercado Pago | **Sí** |
 | `MERCADOPAGO_WEBHOOK_SECRET` | Secreto de firma del webhook | **Sí** |
@@ -85,8 +84,9 @@ Las migraciones viven en `migrations/` y se aplican en orden con `npm run migrat
 | `0002_orders.sql` | Pedidos, ítems, cupones, consultas, bitácora de correos |
 | `0003_pricing_modes.sql` | Modos de precio (`fixed` / `quote`) y catálogo inicial |
 | `0004_quote_flow.sql` | Campos de cotización del pedido y del ítem |
+| `0005_category_hierarchy.sql` | Categorías y subcategorías, máximo dos niveles y protección contra borrado de categorías usadas |
 
-Las migraciones son idempotentes: se pueden volver a ejecutar sin romper nada.
+El comando registra las migraciones aplicadas y omite las ya ejecutadas. No ejecutar los archivos SQL manualmente por segunda vez.
 
 ### Cargar un catálogo propio
 
@@ -109,7 +109,7 @@ Desde el panel se controla todo el sitio:
 - **Panel:** indicadores, pedidos recientes, productos más vendidos, checklist de puesta en marcha.
 - **Pedidos:** filtros, detalle, cambio de estado, **cotización** con link de pago, notas internas.
 - **Productos:** alta y edición completa, imágenes, opciones, precios, SEO, publicación.
-- **Categorías:** alta, orden, activación.
+- **Categorías:** alta y edición de categorías y subcategorías reutilizables. Se pueden crear desde la ficha del producto sin perder los datos cargados. Desactivar una categoría principal oculta también sus subcategorías y productos. No se pueden borrar categorías con productos o subcategorías.
 - **Consultas:** formulario de contacto del sitio, respuesta por correo.
 - **Cupones:** porcentajes o montos, mínimos, límites de uso y vigencia.
 - **Ajustes:** datos del negocio, contacto, redes, envíos, impuestos, textos de la home y
@@ -133,7 +133,7 @@ El correo de "pedido nuevo" incluye un enlace directo al pedido:
 4. En el panel de Mercado Pago, configurá las **notificaciones** apuntando a:
 
    ```
-   https://TU-DOMINIO/api/payments/webhook
+   https://TU-DOMINIO/api/payments/mercadopago/webhook
    ```
 
    y copiá el *secret signature* en `MERCADOPAGO_WEBHOOK_SECRET`.
@@ -202,20 +202,22 @@ El repositorio incluye `render.yaml` (Blueprint): crea la base PostgreSQL y el s
 2. En Render: **New → Blueprint** y apuntá al repositorio.
 3. Render crea la base `dm-grafica-rapida-db` y el servicio `dm-grafica-rapida`.
 4. Completá las variables `sync: false` (se piden en la pantalla de Blueprint):
-   `PUBLIC_BASE_URL`, `SESSION_SECRET`, `MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_WEBHOOK_SECRET`,
+   `PUBLIC_BASE_URL`, `MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_WEBHOOK_SECRET`,
    `RESEND_API_KEY`, `EMAIL_FROM`, `ADMIN_NOTIFICATION_EMAIL`, `SUPABASE_URL`,
-   `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_BUCKET`.
+   `SUPABASE_SERVICE_ROLE_KEY`. El bucket predeterminado es `productos`.
 5. `preDeployCommand` corre `npm run migrate` antes de cada despliegue.
-6. `healthCheckPath` apunta a `/healthz`.
+6. `healthCheckPath` apunta a `/healthz`. El inicio del servicio ejecuta `node src/server.js`; las migraciones ya se aplicaron en el paso previo.
+
+Las sesiones usan tokens aleatorios guardados como hash en PostgreSQL; no requieren `SESSION_SECRET`. El Blueprint instala solo dependencias de producción. PGlite se usa únicamente en las pruebas locales.
 
 ### Deploy manual (sin Blueprint)
 
 - Creá una base PostgreSQL en Render y una **Web Service** con:
-  - `Build Command`: `npm ci`
+  - `Build Command`: `npm ci --omit=dev`
   - `Start Command`: `npm start`
-  - Plan **Starter** (el plan Free no ejecuta `preDeployCommand` y la base gratuita se suspende).
+  - El Blueprint propone el plan **Starter** y una base PostgreSQL independiente.
 - Agregá las variables de entorno.
-- Ejecutá `npm run migrate` una vez (o dejá que lo haga el `preDeployCommand`).
+- Con `npm start`, las migraciones se ejecutan antes de iniciar el servidor. Si configurás `preDeployCommand: npm run migrate`, usá `node src/server.js` como inicio para evitar repetir ese paso.
 
 ### Dominio propio
 

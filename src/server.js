@@ -67,11 +67,9 @@ const publicOrigin = (() => {
 
 if (publicOrigin) {
   app.use((req, res, next) => {
-    const host = req.get("host");
-    if (!host || req.get("x-forwarded-proto") === undefined) {
-      if (host && host.includes("onrender.com") && req.get("x-forwarded-host") !== host) {
-        return res.redirect(308, `${publicOrigin}${req.originalUrl}`);
-      }
+    const host = String(req.get("host") || "").split(":")[0].toLowerCase();
+    if (req.path !== "/healthz" && host.endsWith(".onrender.com") && host !== new URL(publicOrigin).hostname) {
+      return res.redirect(308, `${publicOrigin}${req.originalUrl}`);
     }
     return next();
   });
@@ -338,6 +336,16 @@ async function renderPage(res, file, seo = {}) {
     .replace(/<link rel="canonical" href="[^"]*"/, `<link rel="canonical" href="${escapeHtml(canonical)}"`)
     .replace(/(<meta property="og:url" content=")[^"]*(")/, `$1${escapeHtml(canonical)}$2`);
 
+  if (base) {
+    html = html.replace(/(<link rel="alternate" hreflang="[^"]+" href=")([^"]*)(")/g,
+      (_match, open, href, close) => {
+        try {
+          const pathname = new URL(href, base).pathname;
+          return `${open}${escapeHtml(`${base}${pathname}`)}${close}`;
+        } catch { return `${open}${href}${close}`; }
+      });
+  }
+
   if (seo.title) {
     html = html.replace(/<title>[\s\S]*?<\/title>/, `<title>${escapeHtml(seo.title)}</title>`);
   }
@@ -397,7 +405,7 @@ app.get("/categoria/:slug", async (req, res) => {
   if (!category || !category.active) return renderPage(res, "catalogo.html");
   const base = (process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "");
   return renderPage(res, "catalogo.html", {
-    title: `${category.name} | DM Gráfica Rápida`,
+    title: `${category.name} | DM Comunicación Visual`,
     description: category.description || `${category.name} personalizados en Rivera. Pedí tu cotización desde el sitio.`,
     canonical: `${base}/categoria/${category.slug}`,
     jsonLd: {
@@ -415,7 +423,7 @@ app.get("/producto/:slug", async (req, res) => {
   if (!product || !product.active) return res.status(404).send("Producto no encontrado.");
   const base = (process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "");
   const image = Array.isArray(product.images) ? product.images[0]?.url : null;
-  const title = product.seo_title || `${product.name} | DM Gráfica Rápida`;
+  const title = product.seo_title || `${product.name} | DM Comunicación Visual`;
   const description = product.seo_description
     || product.short_description
     || `${product.name} personalizados en Rivera, Uruguay. Pedí tu cotización online.`;
@@ -431,14 +439,14 @@ app.get("/producto/:slug", async (req, res) => {
       description,
       image: image ? [image] : undefined,
       category: product.category_name || undefined,
-      brand: { "@type": "Brand", name: "DM Gráfica Rápida" },
+      brand: { "@type": "Brand", name: "DM Comunicación Visual" },
       offers: {
         "@type": "Offer",
         availability: "https://schema.org/InStock",
         priceCurrency: product.currency || "UYU",
         price: product.pricing_mode === "quote" ? undefined : Number(product.price || 0),
         url: `${base}/producto/${product.slug}`,
-        seller: { "@type": "Organization", name: "DM Gráfica Rápida" },
+        seller: { "@type": "Organization", name: "DM Comunicación Visual" },
       },
     },
   });
@@ -565,7 +573,7 @@ app.use((error, _req, res, _next) => {
 });
 
 const server = app.listen(port, "0.0.0.0", () => {
-  console.log(`DM Gráfica Rápida escuchando en el puerto ${port}.`);
+  console.log(`DM Comunicación Visual escuchando en el puerto ${port}.`);
 });
 
 async function shutdown() {

@@ -1,5 +1,5 @@
 /**
- * Panel de administración de DM Gráfica Rápida.
+ * Panel de administración de DM Comunicación Visual.
  * Frontend estático sin build: ES modules nativos. Solo usa public/js/api.js y public/js/ui.js.
  */
 
@@ -760,7 +760,7 @@ function renderOrdersList(container) {
 
   const pag = document.createElement("div");
   pag.className = "admin-pagination";
-  pag.innerHTML = `<div>Mostrando ${list.length} resultado(s). Total backend: ${state.ordersTotal}. Los filtros por fecha se aplican en el cliente sobre los pedidos cargados.</div>`;
+  pag.innerHTML = `<div>Mostrando ${list.length} resultado(s). Total de pedidos: ${state.ordersTotal}. Los filtros de fecha se aplican a los pedidos de esta página.</div>`;
   container.appendChild(pag);
 
   container.addEventListener("click", (e) => {
@@ -875,7 +875,7 @@ function renderOrderDetail(container, res) {
   if (order.requires_quote || order.status === "quote") {
     const quote = document.createElement("section");
     quote.className = "admin-form";
-    quote.innerHTML = `<div class="admin-form__head"><h3>Cotizar pedido</h3><p class="admin-block__note">Fijá el importe de los ítems a cotizar. Se suma al subtotal para calcular el total.</p></div><div class="admin-form__grid"><div class="field"><label class="field__label" for="quote-amount">Importe a cotizar (UYU)</label><input class="input" id="quote-amount" type="number" min="0" value="${order.quoted_total || 0}"></div><div class="field"><label class="field__label" for="quote-notes">Notas para el cliente</label><input class="input" id="quote-notes" value="${escapeHtml(order.quote_notes || "")}"></div></div><label class="checkbox"><input type="checkbox" id="quote-link" checked><span>Generar link de pago al cotizar</span></label><div class="admin-form__actions"><button class="btn btn--primary" id="quote-send">Enviar cotización</button><button class="btn btn--secondary" id="quote-mailto">Abrir mailto al cliente</button></div>`;
+    quote.innerHTML = `<div class="admin-form__head"><h3>Cotizar pedido</h3><p class="admin-block__note">Fijá el importe de los ítems a cotizar. Se suma al subtotal para calcular el total.</p></div><div class="admin-form__grid"><div class="field"><label class="field__label" for="quote-amount">Importe a cotizar (UYU)</label><input class="input" id="quote-amount" type="number" min="0" value="${order.quoted_total || 0}"></div><div class="field"><label class="field__label" for="quote-notes">Notas para el cliente</label><input class="input" id="quote-notes" value="${escapeHtml(order.quote_notes || "")}"></div></div><label class="checkbox"><input type="checkbox" id="quote-link" checked><span>Generar link de pago al cotizar</span></label><div class="admin-form__actions"><button class="btn btn--primary" id="quote-send">Enviar cotización</button><button class="btn btn--secondary" id="quote-mailto">Escribir un correo al cliente</button></div>`;
     container.appendChild(quote);
   }
 
@@ -936,8 +936,8 @@ function renderOrderDetail(container, res) {
       return;
     }
     if (e.target.id === "quote-mailto") {
-      const subject = encodeURIComponent(`Cotización DM Gráfica Rápida - Pedido ${order.code}`);
-      const body = encodeURIComponent(`Hola ${order.customer_name},\n\nTu cotización del pedido ${order.code} está lista. Podés ver y pagar desde el panel de seguimiento o desde el link que te enviamos.\n\nSaludos,\nDM Gráfica Rápida`);
+      const subject = encodeURIComponent(`Cotización DM Comunicación Visual - Pedido ${order.code}`);
+      const body = encodeURIComponent(`Hola ${order.customer_name},\n\nTu cotización del pedido ${order.code} está lista. Podés ver y pagar desde el panel de seguimiento o desde el link que te enviamos.\n\nSaludos,\nDM Comunicación Visual`);
       window.location.href = `mailto:${order.customer_email}?subject=${subject}&body=${body}`;
     }
   });
@@ -1042,9 +1042,9 @@ function editProduct(id) {
     <div class="admin-form__section"><h4>Categoría y visibilidad</h4><div class="admin-form__grid"><div class="field"><label class="field__label" for="prod-cat">Categoría</label><select class="select" id="prod-cat"><option value="">Sin categoría</option></select><button class="btn btn--secondary btn--sm" type="button" id="prod-new-category">Crear categoría o subcategoría</button></div><div class="field"><label class="field__label" for="prod-sort">Orden</label><input class="input" id="prod-sort" type="number" value="${prod?.sort_order ?? 0}"></div></div><label class="checkbox"><input type="checkbox" id="prod-active" ${prod?.active ? "checked" : ""}><span>Activo (visible en el sitio)</span></label><label class="checkbox"><input type="checkbox" id="prod-featured" ${prod?.featured ? "checked" : ""}><span>Destacado</span></label></div>
     <div class="admin-form__section"><h4>Stock</h4><label class="checkbox"><input type="checkbox" id="prod-manage" ${prod?.manage_stock ? "checked" : ""}><span>Gestionar stock</span></label><div class="field"><label class="field__label" for="prod-stock">Stock</label><input class="input" id="prod-stock" type="number" min="0" value="${prod?.stock ?? 0}"></div><div class="field"><label class="field__label" for="prod-min">Cantidad mínima</label><input class="input" id="prod-min" type="number" min="1" value="${prod?.min_quantity ?? 1}"></div><div class="field"><label class="field__label" for="prod-lead">Días de producción</label><input class="input" id="prod-lead" type="number" min="0" value="${prod?.lead_time_days ?? 3}"></div></div>
     <div class="admin-form__section"><h4>Personalización</h4><label class="checkbox"><input type="checkbox" id="prod-pers" ${prod?.personalization_enabled ? "checked" : ""}><span>Habilitar campo de personalización</span></label><div class="field"><label class="field__label" for="prod-pers-prompt">Indicación al cliente</label><input class="input" id="prod-pers-prompt" value="${escapeHtml(prod?.personalization_prompt || "")}"></div></div>
-    <div class="admin-form__section"><h4>SEO</h4><div class="field"><label class="field__label" for="prod-seo-t">Título SEO</label><input class="input" id="prod-seo-t" maxlength="70" value="${escapeHtml(prod?.seo_title || "")}"></div><div class="field"><label class="field__label" for="prod-seo-d">Descripción SEO</label><input class="input" id="prod-seo-d" maxlength="165" value="${escapeHtml(prod?.seo_description || "")}"></div></div>
-    <div class="admin-form__section"><h4>Opciones JSON</h4><div class="field"><label class="field__label" for="prod-options">Opciones de producto (JSON)</label><textarea class="textarea" id="prod-options">${escapeHtml(JSON.stringify(prod?.options || [], null, 2))}</textarea><p class="admin-block__note">Usar el formato validado por el backend.</p></div></div>
-    <div class="admin-form__section"><h4>Imágenes</h4><div id="prod-images" class="image-grid"></div><div class="image-uploader"><p>Subí imágenes (requiere guardar el producto primero si es nuevo).</p><input type="file" id="prod-image-file" accept="image/*"></div><p class="admin-block__note">Las imágenes se suben con uploadImage y luego se guardan con updateProduct({images}).</p></div>
+    <div class="admin-form__section"><h4>Cómo aparece en buscadores</h4><div class="field"><label class="field__label" for="prod-seo-t">Título SEO</label><input class="input" id="prod-seo-t" maxlength="70" value="${escapeHtml(prod?.seo_title || "")}"></div><div class="field"><label class="field__label" for="prod-seo-d">Descripción SEO</label><input class="input" id="prod-seo-d" maxlength="165" value="${escapeHtml(prod?.seo_description || "")}"></div></div>
+    <div class="admin-form__section"><h4>Personalización avanzada</h4><div class="field"><label class="field__label" for="prod-options">Opciones de producto (JSON)</label><textarea class="textarea" id="prod-options">${escapeHtml(JSON.stringify(prod?.options || [], null, 2))}</textarea><p class="admin-block__note">Dejá [] si no hay opciones. Este campo usa formato JSON; mantené la estructura de las opciones existentes.</p></div></div>
+    <div class="admin-form__section"><h4>Imágenes</h4><div id="prod-images" class="image-grid"></div><div class="image-uploader"><p>Subí imágenes (requiere guardar el producto primero si es nuevo).</p><input type="file" id="prod-image-file" accept="image/*"></div><p class="admin-block__note">La primera imagen será la portada. Usá las flechas para cambiar el orden y guardá el producto para confirmar.</p></div>
     <div class="admin-form__actions"><button class="btn btn--primary" type="submit">Guardar</button><button class="btn btn--secondary" type="button" data-act="back-products">Cancelar</button>${prod ? `<button class="btn btn--danger" type="button" id="prod-delete">Eliminar</button>` : ""}</div>
   `;
   secondary.appendChild(form);
@@ -1324,7 +1324,7 @@ function renderCategories(container) {
   wrap.setAttribute("aria-label", "Categorías y subcategorías");
   const table = document.createElement("table");
   table.className = "admin-table";
-  table.innerHTML = `<thead><tr><th>Nombre</th><th>Slug</th><th>Orden</th><th>Productos</th><th>Estado</th><th></th></tr></thead><tbody></tbody>`;
+  table.innerHTML = `<thead><tr><th>Nombre</th><th>Enlace</th><th>Orden</th><th>Productos</th><th>Estado</th><th></th></tr></thead><tbody></tbody>`;
   const tbody = table.querySelector("tbody");
   orderedCategories().forEach((c) => {
     const tr = document.createElement("tr");

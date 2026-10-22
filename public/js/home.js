@@ -14,41 +14,32 @@ function renderCategories(categories) {
     clear(grid).innerHTML = `
       <div class="empty-state" style="grid-column: 1 / -1;">
         <h3>El catálogo se está preparando</h3>
-        <p>Estamos cargando los productos. Vuelvé en un rato o escribinos y te lo cotizamos al instante.</p>
+        <p>Estamos cargando los productos. Volvé en un rato o escribinos y te lo cotizamos al instante.</p>
         <a class="btn btn--primary" href="/contacto">Escribinos</a>
       </div>`;
     return;
   }
 
   clear(grid).innerHTML = categories.map((category) => `
-    <article class="product-card">
-      <div class="product-card__media" style="display:flex; align-items:center; justify-content:center; padding:24px; text-align:center;">
-        <span style="font-family: var(--font-display); font-size:1.125rem; font-weight:700; color: var(--color-primary);">${escapeHtml(category.name)}</span>
-      </div>
-      <div class="product-card__body">
-        ${category.description ? `<p class="product-card__desc">${escapeHtml(category.description)}</p>` : ""}
-        <div class="product-card__footer">
-          <span class="product-card__category">${category.product_count} producto${category.product_count === 1 ? "" : "s"}</span>
-          <a class="btn btn--secondary btn--sm" href="/catalogo?categoria=${encodeURIComponent(category.slug)}">Ver</a>
-        </div>
-      </div>
-    </article>`).join("");
+    <a class="category-tile" href="/catalogo?categoria=${encodeURIComponent(category.slug)}">
+      <img src="${escapeHtml(category.image_url || "https://images.unsplash.com/photo-1586953208448-b95a79798f07?auto=format&fit=crop&w=640&q=80")}" alt="" width="640" height="480" loading="lazy">
+      <span class="category-tile__body">
+        <span>${escapeHtml(category.name)}</span>
+        <span class="category-tile__arrow" aria-hidden="true">→</span>
+      </span>
+    </a>`).join("");
 }
 
 function renderFeatured(products) {
   const grid = el("[data-featured]");
+  const section = el("[data-featured-section]");
   if (!grid) return;
 
   if (!products.length) {
-    clear(grid).innerHTML = `
-      <div class="empty-state" style="grid-column: 1 / -1;">
-        <h3>Todavía no hay productos publicados</h3>
-        <p>Mientras tanto, contanos qué necesitás y te cotizamos por WhatsApp.</p>
-        <a class="btn btn--primary" href="/contacto">Pedir cotización</a>
-      </div>`;
+    if (section) section.hidden = true;
     return;
   }
-
+  if (section) section.hidden = false;
   clear(grid).innerHTML = products.map(productCard).join("");
 }
 
@@ -58,7 +49,7 @@ async function load() {
     renderCategories(categories);
     renderFeatured(products.filter((product) => product.featured).slice(0, 8));
   } catch (error) {
-    const grid = el("[data-featured]");
+    const grid = el("[data-categories]");
     if (grid) {
       clear(grid).innerHTML = `
         <div class="empty-state" style="grid-column: 1 / -1;">

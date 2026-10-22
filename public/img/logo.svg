@@ -1,7 +1,8 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 72" role="img" aria-label="DM Gráfica Rápida">
-  <rect x="0" y="8" width="56" height="56" rx="12" fill="#134E9D"/>
-  <path d="M0 40c7 0 7-4 14-4s7 4 14 4 7-4 14-4 7 4 14 4v28H0z" fill="#7A9A78" opacity="0.55"/>
-  <text x="28" y="45" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="24" font-weight="700" fill="#FFFFFF">DM</text>
-  <text x="72" y="36" font-family="Georgia, 'Times New Roman', serif" font-size="24" font-weight="700" fill="#134E9D">DM Gráfica</text>
-  <text x="72" y="58" font-family="Helvetica, Arial, sans-serif" font-size="13" letter-spacing="3.2" fill="#6B7785">RÁPIDA</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 92" role="img" aria-labelledby="title">
+<title id="title">DM Comunicación Visual</title>
+<path fill="#0B0F14" d="M30 8h50c25 0 40 13 40 32s-15 32-40 32H30V56h50c15 0 23-6 23-16S95 24 80 24H30zM125 8h18l34 34 34-34h18v64h-18V34l-34 33-34-33v38h-18z"/>
+<path fill="#0B3D91" d="M28 32h43v16H28zM15 27h9v9h-9zM7 39h8v8H7zM18 49h8v8h-8zM0 31h6v6H0z"/>
+<path fill="#F97316" d="M208 54h21l11 18h-30z"/>
+<path fill="#EA580C" d="m208 54 21 7 11 11h-30z"/>
+<text x="29" y="87" font-family="Arial, Helvetica, sans-serif" font-size="13" font-weight="600" letter-spacing=".5" fill="#0B0F14">COMUNICACIÓN <tspan fill="#0B3D91">VISUAL</tspan></text>
 </svg>

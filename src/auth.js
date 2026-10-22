@@ -6,7 +6,7 @@ import { pool } from "./db.js";
  * Autenticación del panel de administración.
  *
  * El cliente final NO tiene cuenta: compra como invitado. Este módulo
- * existe únicamente para el personal de DM Gráfica Rápida.
+ * existe únicamente para el personal de DM Comunicación Visual.
  *
  * - Contraseñas con scrypt y sal por usuario.
  * - Sesiones en base de datos: se pueden revocar y quedan registradas.
