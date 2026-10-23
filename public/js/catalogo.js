@@ -148,7 +148,7 @@ async function load() {
   } catch (error) {
     console.error(error);
     const grid = el("[data-catalog-grid]");
-    if (grid) {
+    if (grid && !grid.querySelector("article")) {
       clear(grid).innerHTML = `
         <div class="empty-state" style="grid-column: 1 / -1;">
           <h3>No pudimos cargar el catálogo</h3>

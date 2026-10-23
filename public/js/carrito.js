@@ -1,3 +1,4 @@
+import { PAYMENT_LABELS } from "./payment-pricing.js";
 /**
  * Carrito de compras.
  *
@@ -6,7 +7,7 @@
  * acá solo se muestra una estimación para que el usuario vea el total.
  */
 
-import { formatMoney, escapeHtml } from "./api.js";
+import { api, formatMoney, escapeHtml } from "./api.js";
 import { clear, toast } from "./ui.js";
 
 const CART_KEY = "dmgrafica:carrito";
@@ -286,7 +287,7 @@ export function renderCartDrawer(settings) {
         <div>
           ${isQuote
             ? '<span class="price--quote">A cotizar</span>'
-            : `<strong>${formatMoney(item.unitPrice * item.quantity)}</strong>`}
+            : `<strong>${formatMoney((item.unitPrice + estimateOptionDelta(item)) * item.quantity)}</strong>`}
         </div>
       </div>`;
   }).join("");
@@ -301,6 +302,12 @@ export function renderCartDrawer(settings) {
       ? '<p class="cart-line__meta" style="margin-bottom:12px;">Hay productos a cotizar: te respondemos con una propuesta antes de cobrar.</p>'
       : ""}
     <div class="summary-row"><span>Subtotal estimado</span><strong>${formatMoney(subtotal)}</strong></div>
+    <div data-drawer-payments aria-live="polite">Verificando medios de pago…</div>
     <a class="btn btn--primary btn--block btn--lg" href="/checkout" style="margin-top:12px;">Ir al checkout</a>
     <a class="btn btn--secondary btn--block" href="/catalogo" style="margin-top:8px;">Seguir comprando</a>`;
+  const paymentNode = foot.querySelector("[data-drawer-payments]");
+  api.previewCart({ items: toApiItems(), coupon_code: getCouponCode(), delivery_method: "pickup" }).then(preview => {
+    if (!paymentNode.isConnected) return;
+    paymentNode.innerHTML = Object.entries(preview.totals).map(([method, sum]) => `<div class="summary-row"><span>${PAYMENT_LABELS[method]}${preview.methods[method] ? "" : " (no disponible)"}</span><strong>${formatMoney(sum.total)}</strong></div>${sum.adjustment ? `<small>${sum.adjustment > 0 ? "Incluye recargo por Mercado Pago en productos seleccionados." : "Incluye descuento en productos seleccionados."}</small>` : ""}`).join("") + '<small>Sin envío. Los productos a cotizar se confirman después.</small>';
+  }).catch(error => { if (paymentNode.isConnected) paymentNode.textContent = error.message; });
 }

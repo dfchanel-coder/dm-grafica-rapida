@@ -1,3 +1,5 @@
+import { settleOrder } from "./settlement.js";
+import { ValidationError } from "./validate.js";
 import { pool } from "./db.js";
 import { validateMercadoPagoSignature } from "./mercadopago-signature.js";
 
@@ -87,7 +89,7 @@ export async function createPreference({ order, customer }) {
 
   const response = await mpFetch("/checkout/preferences", {
     method: "POST",
-    headers: { "X-Idempotency-Key": order.id },
+    headers: { "X-Idempotency-Key": `${order.id}-${order.payment_revision || 0}` },
     body: JSON.stringify({
       items: mpItems,
       external_reference: order.id,
@@ -102,7 +104,7 @@ export async function createPreference({ order, customer }) {
         email: customer.email,
       },
       statement_descriptor: "DM COMUNICACION VISUAL",
-      metadata: { order_id: order.id, order_code: order.code },
+      metadata: { order_id: order.id, order_code: order.code, payment_revision: order.payment_revision || 0 },
     }),
   });
 
@@ -185,7 +187,9 @@ export async function applyPayment(payment, { onPaid, onStatusChange } = {}) {
     const metadataMatches = !payment.metadata?.order_id
       || String(payment.metadata.order_id) === String(order.id);
 
-    if (!amountMatches || !currencyMatches || !preferenceMatches || !metadataMatches
+    const revisionMatches = Number(payment.metadata?.payment_revision || 0) === Number(order.payment_revision || 0);
+    const methodMatches = !order.payment_provider || order.payment_provider === "mercadopago";
+    if (!amountMatches || !currencyMatches || !preferenceMatches || !metadataMatches || !revisionMatches || !methodMatches
         || (paymentStatus === "approved" && !["pending_payment", "failed", "review"].includes(order.status))) {
       await client.query(
         `UPDATE orders SET status = 'review', payment_status = $2, mp_payment_id = COALESCE($3, mp_payment_id), updated_at = NOW()
@@ -199,45 +203,16 @@ export async function applyPayment(payment, { onPaid, onStatusChange } = {}) {
     }
 
     if (paymentStatus === "approved") {
-      // El uso se consume al confirmar el pago y bajo el mismo bloqueo del pedido.
-      // El UPDATE condicional serializa pagos concurrentes del último cupón.
-      if (order.coupon_code) {
-        const consumed = await client.query(
-          `UPDATE coupons SET used_count = used_count + 1, updated_at = NOW()
-           WHERE upper(code) = upper($1) AND (max_uses IS NULL OR used_count < max_uses)
-           RETURNING id`, [order.coupon_code],
-        );
-        if (!consumed.rowCount) {
-          await client.query(
-            `UPDATE orders SET status = 'review', payment_status = $2, mp_payment_id = $3,
-             updated_at = NOW() WHERE id = $1`, [orderId, paymentStatus, paymentId],
-          );
-          await client.query("COMMIT");
-          if (onStatusChange) await onStatusChange(orderId, "review");
-          return "review";
-        }
-      }
-      await client.query(
-        `UPDATE orders
-            SET status = 'paid', payment_status = 'approved', mp_payment_id = $2,
-                paid_at = COALESCE(paid_at, NOW()), updated_at = NOW()
-          WHERE id = $1`,
-        [orderId, paymentId],
-      );
-
-      // El stock se descuenta recién con el pago confirmado, no al crear el pedido.
-      {
-        const items = await client.query(
-          "SELECT product_id, quantity, is_quote FROM order_items WHERE order_id = $1",
-          [orderId],
-        );
-        for (const item of items.rows) {
-          if (!item.product_id || item.is_quote) continue;
-          await client.query(
-            "UPDATE products SET stock = GREATEST(0, stock - $2) WHERE id = $1 AND manage_stock",
-            [item.product_id, item.quantity],
-          );
-        }
+      await client.query("SAVEPOINT settlement");
+      try {
+        await settleOrder(client, order, { provider: "mercadopago", paymentId });
+      } catch (error) {
+        if (!(error instanceof ValidationError)) throw error;
+        await client.query("ROLLBACK TO SAVEPOINT settlement");
+        await client.query(`UPDATE orders SET status = 'review', payment_status = $2, mp_payment_id = $3, updated_at = NOW() WHERE id = $1`, [orderId, paymentStatus, paymentId]);
+        await client.query("COMMIT");
+        if (onStatusChange) await onStatusChange(orderId, "review");
+        return "review";
       }
 
       await client.query("COMMIT");

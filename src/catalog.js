@@ -6,7 +6,7 @@ import { pool } from "./db.js";
 
 const PRODUCT_FIELDS = `
   p.id, p.slug, p.name, p.short_description, p.description, p.category_id,
-  p.price, p.compare_at_price, p.currency, p.images, p.options,
+  p.price, p.payment_rule, p.payment_percent, p.compare_at_price, p.currency, p.images, p.options,
   p.personalization_enabled, p.personalization_prompt,
   p.min_quantity, p.manage_stock, p.stock, p.lead_time_days,
   p.featured, p.sort_order, p.pricing_mode, p.requires_quote,
@@ -73,7 +73,7 @@ export async function getProductsByIds(ids) {
 export async function getSeoProduct(slug) {
   const result = await pool.query(
     `SELECT p.slug, p.name, p.short_description, p.description, p.price, p.currency,
-            p.images, (${VISIBLE_PRODUCT}) AS active, p.pricing_mode, p.requires_quote,
+            p.images, p.manage_stock, p.stock, (${VISIBLE_PRODUCT}) AS active, p.pricing_mode, p.requires_quote,
             c.name AS category_name, c.slug AS category_slug
        FROM products p
        LEFT JOIN categories c ON c.id = p.category_id

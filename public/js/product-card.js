@@ -1,3 +1,4 @@
+import { paymentRuleNote } from "./payment-pricing.js";
 /**
  * Tarjeta de producto reutilizable.
  * Se usa en la home, el catálogo y los resultados de búsqueda.
@@ -37,8 +38,9 @@ export function productCard(product) {
           <a href="/producto/${slug}">${escapeHtml(product.name)}</a>
         </h3>
         ${product.short_description ? `<p class="product-card__desc">${escapeHtml(product.short_description)}</p>` : ""}
+        ${paymentRuleNote(product) ? `<p class="field__hint">${escapeHtml(paymentRuleNote(product))}</p>` : ""}
         <div class="product-card__footer">
-          ${compareAt ? compareAt : price}
+          ${price} ${isQuote ? "" : compareAt}
           <a class="btn btn--secondary btn--sm" href="/producto/${slug}">Ver detalle</a>
         </div>
       </div>

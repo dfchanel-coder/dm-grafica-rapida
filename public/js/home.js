@@ -50,7 +50,7 @@ async function load() {
     renderFeatured(products.filter((product) => product.featured).slice(0, 8));
   } catch (error) {
     const grid = el("[data-categories]");
-    if (grid) {
+    if (grid && !grid.querySelector("a")) {
       clear(grid).innerHTML = `
         <div class="empty-state" style="grid-column: 1 / -1;">
           <h3>No pudimos cargar el catálogo</h3>

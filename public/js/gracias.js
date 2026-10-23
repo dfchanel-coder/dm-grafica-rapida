@@ -1,3 +1,5 @@
+import { instructionsHtml, PAYMENT_LABELS } from "./payment-ui.js";
+import { mountPaymentActions } from "./order-payment-actions.js";
 /**
  * Página de agradecimiento.
  *
@@ -19,10 +21,10 @@ const isQuote = params.get("cotizacion") === "1";
 function renderBase() {
   if (!root) return;
 
-  const title = isQuote ? "Recibimos tu consulta" : "¡Gracias por tu compra!";
+  const title = isQuote ? "Recibimos tu consulta" : "Recibimos tu pedido";
   const lead = isQuote
     ? "Revisamos tu pedido y te enviamos la cotización con el link de pago. No se cobró nada."
-    : "Te enviamos la confirmación por correo con el detalle de tu pedido.";
+    : "Consultá debajo el estado del pago y las instrucciones para continuar.";
 
   clear(root).innerHTML = `
     <div class="result-card">
@@ -57,7 +59,7 @@ function renderStatus(order) {
         <strong style="font-weight:600;">${escapeHtml(item.product_name)}</strong> × ${item.quantity}
         ${item.customization ? `<br><span style="font-size:0.8125rem;color:var(--color-muted);">${escapeHtml(item.customization)}</span>` : ""}
       </span>
-      <span style="white-space:nowrap;">${item.is_quote ? '<span class="price--quote">A cotizar</span>' : formatMoney(item.line_total)}</span>
+      <span style="white-space:nowrap;">${item.is_quote && item.quoted_amount === null ? '<span class="price--quote">A cotizar</span>' : formatMoney(item.is_quote ? item.quoted_amount : item.line_total)}</span>
     </li>`).join("");
 
   clear(container).innerHTML = `
@@ -69,6 +71,10 @@ function renderStatus(order) {
 
       <div class="summary-row"><span>Subtotal</span><strong>${formatMoney(order.subtotal)}</strong></div>
       ${Number(order.discount) ? `<div class="summary-row"><span>Descuento</span><strong>− ${formatMoney(order.discount)}</strong></div>` : ""}
+      ${Number(order.quoted_total) ? `<div class="summary-row"><span>Importe cotizado</span><strong>${formatMoney(order.quoted_total)}</strong></div>` : ""}
+      ${Number(order.payment_adjustment) ? `<div class="summary-row"><span>Ajuste por medio de pago</span><strong>${formatMoney(order.payment_adjustment)}</strong></div>` : ""}
+      <p>Medio: ${escapeHtml(PAYMENT_LABELS[order.payment_provider] || "Mercado Pago")}</p>
+      ${instructionsHtml(order)}
       <div class="summary-row"><span>Envío</span><strong>${Number(order.shipping_cost) ? formatMoney(order.shipping_cost) : "Sin costo"}</strong></div>
       ${Number(order.tax) ? `<div class="summary-row"><span>IVA</span><strong>${formatMoney(order.tax)}</strong></div>` : ""}
       <div class="summary-row summary-row--total"><span>Total</span><strong>${formatMoney(order.total)}</strong></div>
@@ -77,6 +83,7 @@ function renderStatus(order) {
         ? `<p style="margin:12px 0 0; font-size:0.9375rem;">Entrega estimada: <strong>${escapeHtml(order.estimated_delivery)}</strong></p>`
         : ""}
     </section>`;
+  mountPaymentActions(container, order, localStorage.getItem(LAST_EMAIL_KEY), renderStatus);
 }
 
 async function tryAutoTrack() {

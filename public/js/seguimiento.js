@@ -1,3 +1,5 @@
+import { instructionsHtml, PAYMENT_LABELS } from "./payment-ui.js";
+import { mountPaymentActions } from "./order-payment-actions.js";
 /**
  * Seguimiento del pedido.
  *
@@ -19,7 +21,7 @@ const LAST_EMAIL_KEY = "dmgrafica:lastEmail";
 const STEPS = [
   { key: "received", title: "Pedido recibido", note: "Recibimos tu pedido y lo estamos revisando." },
   { key: "quote", title: "Cotización", note: "Preparamos la propuesta con el detalle de tu pedido." },
-  { key: "payment", title: "Pago", note: "Te enviamos el link de pago de Mercado Pago." },
+  { key: "payment", title: "Pago", note: "Elegís el medio de pago y confirmamos el ingreso." },
   { key: "production", title: "Producción", note: "Imprimimos, armamos y revisamos el resultado." },
   { key: "ready", title: "Listo", note: "Podés retirarlo en Rivera o lo enviamos a tu dirección." },
   { key: "delivered", title: "Entregado", note: "Tu pedido llegó a destino." },
@@ -81,7 +83,7 @@ function renderOrder(order) {
           ${options ? `<br><span style="font-size:0.8125rem;color:var(--color-muted);">${escapeHtml(options)}</span>` : ""}
           ${item.customization ? `<br><span style="font-size:0.8125rem;color:var(--color-muted);">${escapeHtml(item.customization)}</span>` : ""}
         </span>
-        <span style="white-space:nowrap;">${item.is_quote ? '<span class="price--quote">A cotizar</span>' : formatMoney(item.line_total)}</span>
+        <span style="white-space:nowrap;">${item.is_quote && item.quoted_amount === null ? '<span class="price--quote">A cotizar</span>' : formatMoney(item.is_quote ? item.quoted_amount : item.line_total)}</span>
       </li>`;
   }).join("");
 
@@ -108,6 +110,10 @@ function renderOrder(order) {
 
       <div class="summary-row"><span>Subtotal</span><strong>${formatMoney(order.subtotal)}</strong></div>
       ${Number(order.discount) ? `<div class="summary-row"><span>Descuento</span><strong>− ${formatMoney(order.discount)}</strong></div>` : ""}
+      ${Number(order.quoted_total) ? `<div class="summary-row"><span>Importe cotizado</span><strong>${formatMoney(order.quoted_total)}</strong></div>` : ""}
+      ${Number(order.payment_adjustment) ? `<div class="summary-row"><span>Ajuste por medio de pago</span><strong>${formatMoney(order.payment_adjustment)}</strong></div>` : ""}
+      <p>Medio: ${escapeHtml(PAYMENT_LABELS[order.payment_provider] || "Mercado Pago")}</p>
+      ${instructionsHtml(order)}
       <div class="summary-row"><span>Envío</span><strong>${Number(order.shipping_cost) ? formatMoney(order.shipping_cost) : "Sin costo"}</strong></div>
       ${Number(order.tax) ? `<div class="summary-row"><span>IVA</span><strong>${formatMoney(order.tax)}</strong></div>` : ""}
       <div class="summary-row summary-row--total"><span>Total</span><strong>${formatMoney(order.total)}</strong></div>
@@ -120,6 +126,7 @@ function renderOrder(order) {
         <a class="btn btn--secondary btn--sm" data-business-whatsapp href="https://wa.me/59895010244"><span data-whatsapp-label>Consultar por WhatsApp</span></a>
       </div>
     </section>`;
+  mountPaymentActions(result, order, el("#email", form)?.value?.trim(), renderOrder);
 }
 
 function renderError(message) {

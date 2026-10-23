@@ -1,3 +1,4 @@
+import { paymentRuleNote } from "./payment-pricing.js";
 /**
  * Ficha de producto: galería, opciones, cantidad, personalización y carrito.
  */
@@ -200,6 +201,7 @@ function renderInfo(product) {
       <h1>${escapeHtml(product.name)}</h1>
       ${product.short_description ? `<p class="lead">${escapeHtml(product.short_description)}</p>` : ""}
       ${priceBlock}
+      ${paymentRuleNote(product) ? `<p class="field__hint">${escapeHtml(paymentRuleNote(product))}</p>` : ""}
       <div class="product-info__meta">${meta.join("")}</div>
 
       ${product.description ? `<div style="margin-bottom:24px;">${formatDescription(product.description)}</div>` : ""}
@@ -377,7 +379,7 @@ async function load() {
   }
 
   if (!product) {
-    if (root) {
+    if (root && !root.querySelector("h1")) {
       clear(root).innerHTML = `
         <div class="empty-state">
           <h1>No encontramos ese producto</h1>

@@ -82,7 +82,7 @@ function detailsBlock(rows) {
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:18px 0;">${cells}</table>`;
 }
 
-function itemsTable(items, { total, currency }) {
+function itemsTable(items, { total, currency, discount = 0, payment_adjustment = 0, shipping_cost = 0, tax = 0 }) {
   const rows = items.map((item) => `<tr>
     <td style="padding:10px 0;border-bottom:1px solid ${BRAND.line};font-size:14px;">
       <strong>${escapeHtml(item.product_name)}</strong>
@@ -92,11 +92,15 @@ function itemsTable(items, { total, currency }) {
         ? `<div style="color:${BRAND.muted};font-size:13px;margin-top:4px;">${escapeHtml(item.options.map((option) => `${option.label}: ${option.value}`).join(" · "))}</div>`
         : ""}
     </td>
-    <td style="padding:10px 0;border-bottom:1px solid ${BRAND.line};font-size:14px;text-align:right;white-space:nowrap;">${money(item.line_total, currency)}</td>
+    <td style="padding:10px 0;border-bottom:1px solid ${BRAND.line};font-size:14px;text-align:right;white-space:nowrap;">${money(item.is_quote ? item.quoted_amount || 0 : item.line_total, currency)}</td>
   </tr>`).join("");
 
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">
     ${rows}
+    <tr><td>Cupón</td><td style="text-align:right;">− ${money(discount,currency)}</td></tr>
+    <tr><td>Ajuste por medio de pago</td><td style="text-align:right;">${money(payment_adjustment,currency)}</td></tr>
+    <tr><td>Envío</td><td style="text-align:right;">${money(shipping_cost,currency)}</td></tr>
+    <tr><td>IVA adicional</td><td style="text-align:right;">${money(tax,currency)}</td></tr>
     <tr><td style="padding:14px 0 0;font-size:15px;font-weight:700;">Total</td>
     <td style="padding:14px 0 0;font-size:15px;font-weight:700;text-align:right;">${money(total, currency)}</td></tr>
   </table>`;
@@ -121,7 +125,7 @@ export function orderConfirmationCustomer({ order, items, business = {} }) {
       ["Fecha", escapeHtml(new Date(order.created_at).toLocaleDateString("es-UY", { dateStyle: "long" }))],
     ])}
 
-    ${itemsTable(items, { total: order.total, currency: order.currency })}
+    ${itemsTable(items, order)}
 
     ${order.notes ? `<p style="margin:18px 0 0;"><strong>Tu consulta:</strong><br><span style="color:${BRAND.muted};">${escapeHtml(order.notes)}</span></p>` : ""}
 
@@ -183,9 +187,9 @@ export function newOrderAdmin({ order, items, business = {} }) {
     : `Envío · ${[order.shipping_address, order.shipping_city, order.shipping_department].filter(Boolean).join(", ")}`;
 
   const body = `
-    <h1 style="margin:0 0 6px;font-size:22px;line-height:1.3;">Nueva orden pagada</h1>
+    <h1 style="margin:0 0 6px;font-size:22px;line-height:1.3;">Pedido ${order.paid_at ? "pagado" : "pendiente de pago"}</h1>
     <p style="margin:0 0 18px;color:${BRAND.muted};">
-      El pedido <strong>${escapeHtml(order.code)}</strong> fue pagado y ya está listo para revisar.
+      El pedido <strong>${escapeHtml(order.code)}</strong> ${order.paid_at ? "fue pagado y está listo para revisar." : "está pendiente de pago. Verificá el ingreso antes de confirmar."}
     </p>
 
     ${detailsBlock([
@@ -197,7 +201,7 @@ export function newOrderAdmin({ order, items, business = {} }) {
       ["Total", `<strong>${money(order.total, order.currency)}</strong>`],
     ])}
 
-    ${itemsTable(items, { total: order.total, currency: order.currency })}
+    ${itemsTable(items, order)}
 
     ${order.notes ? `<p style="margin:18px 0 0;"><strong>Nota del cliente:</strong><br><span style="color:${BRAND.muted};">${escapeHtml(order.notes)}</span></p>` : ""}
 
@@ -209,8 +213,8 @@ export function newOrderAdmin({ order, items, business = {} }) {
 
   return {
     subject: `Nueva orden ${order.code} — ${money(order.total, order.currency)}`,
-    html: layout({ title: `Nueva orden ${order.code}`, preheader: "Hay una nueva orden pagada para revisar.", body }),
-    text: `Nueva orden pagada ${order.code} por ${money(order.total, order.currency)}. Revisala: ${publicUrl()}/admin#pedido/${order.id}`,
+    html: layout({ title: `Nueva orden ${order.code}`, preheader: order.paid_at ? "Hay una orden pagada para revisar." : "Hay un pedido pendiente de pago.", body }),
+    text: `Orden ${order.paid_at ? "pagada" : "pendiente de pago"} ${order.code} por ${money(order.total, order.currency)}. Revisala: ${publicUrl()}/admin#pedido/${order.id}`,
   };
 }
 

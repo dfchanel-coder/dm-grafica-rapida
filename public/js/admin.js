@@ -1,3 +1,5 @@
+import { paymentTotals } from "./payment-pricing.js";
+import { PAYMENT_LABELS, instructionsHtml } from "./payment-ui.js";
 import { productOptionsEditor } from "./product-options-editor.js";
 /**
  * Panel de administración de DM Comunicación Visual.
@@ -708,7 +710,7 @@ function renderOrdersList(container) {
 
   const statusSel = el("#orders-status", wrap);
   const statusLabels = state.overview?.statusLabels || {};
-  Object.keys(statusLabels).forEach((st) => {
+  Object.keys(statusLabels).filter(st => st === order.status || (order.status !== "refunded" && (order.paid_at ? ["in_production", "ready", "delivered", "cancelled"] : ["cancelled"]).includes(st))).forEach((st) => {
     const opt = document.createElement("option");
     opt.value = st;
     opt.textContent = statusLabels[st];
@@ -839,13 +841,17 @@ function renderOrderDetail(container, res) {
   stateCard.className = "detail__card";
   stateCard.innerHTML = `<h4>Estado y gestión</h4><div class="field"><label class="field__label" for="order-status">Estado</label><select class="select" id="order-status"></select></div><div class="field"><label class="field__label" for="order-phone">Teléfono</label><input class="input" id="order-phone" value="${escapeHtml(order.customer_phone || "")}"></div><div class="field"><label class="field__label" for="order-delivery">Entrega estimada</label><input class="input" id="order-delivery" value="${escapeHtml(order.estimated_delivery || "")}"></div><div class="field"><label class="field__label" for="order-notes">Notas internas</label><textarea class="textarea" id="order-notes">${escapeHtml(order.internal_notes || "")}</textarea></div><button class="btn btn--primary" id="order-save">Guardar cambios</button>`;
   const stSel = el("#order-status", stateCard);
-  Object.keys(statusLabels).forEach((st) => {
+  Object.keys(statusLabels).filter(st => st === order.status || (order.status !== "refunded" && (order.paid_at ? ["in_production", "ready", "delivered", "cancelled"] : ["cancelled"]).includes(st))).forEach((st) => {
     const opt = document.createElement("option");
     opt.value = st;
     opt.textContent = statusLabels[st];
     if (st === order.status) opt.selected = true;
     stSel.appendChild(opt);
   });
+  const paymentCard = document.createElement("section");
+  paymentCard.className = "detail__card";
+  paymentCard.innerHTML = `<h4>Pago: ${escapeHtml(PAYMENT_LABELS[order.payment_provider] || order.payment_provider)}</h4>${instructionsHtml(order)}${order.payment_reference ? `<p>Referencia: ${escapeHtml(order.payment_reference)}</p>` : ""}${order.payment_confirmed_by ? `<p>Confirmado por administrador: ${escapeHtml(order.payment_confirmed_by)}</p>` : ""}${!order.paid_at && order.status === "pending_payment" && ["transfer", "cash"].includes(order.payment_provider) ? `<label class="field"><span class="field__label">Referencia del ingreso verificado</span><input class="input" id="manual-payment-reference" maxlength="200"></label><button class="btn btn--primary" id="manual-payment-confirm">Confirmar cobro de ${formatMoney(order.total)}</button><p class="admin-block__note">Verificá el ingreso real antes de confirmar. Un comprobante enviado no equivale a un pago verificado.</p>` : ""}`;
+  grid.appendChild(paymentCard);
   grid.appendChild(stateCard);
   container.appendChild(grid);
 
@@ -869,14 +875,14 @@ function renderOrderDetail(container, res) {
 
   const totals = document.createElement("dl");
   totals.className = "data-list totals";
-  totals.innerHTML = `<div class="data-list__row"><dt>Subtotal</dt><dd>${formatMoney(order.subtotal || 0)}</dd></div><div class="data-list__row"><dt>Descuento</dt><dd>${formatMoney(order.discount || 0)}</dd></div><div class="data-list__row"><dt>Envío</dt><dd>${formatMoney(order.shipping_cost || 0)}</dd></div><div class="data-list__row"><dt>IVA</dt><dd>${formatMoney(order.tax || 0)}</dd></div><div class="data-list__row data-list__row--total"><dt>Total</dt><dd>${order.requires_quote && order.status === "quote" ? "A cotizar" : formatMoney(order.total || 0)}</dd></div>`;
+  totals.innerHTML = `<div class="data-list__row"><dt>Subtotal</dt><dd>${formatMoney(order.subtotal || 0)}</dd></div><div class="data-list__row"><dt>Descuento</dt><dd>${formatMoney(order.discount || 0)}</dd></div><div class="data-list__row"><dt>Ajuste por medio de pago</dt><dd>${formatMoney(order.payment_adjustment || 0)}</dd></div><div class="data-list__row"><dt>Importe cotizado</dt><dd>${formatMoney(order.quoted_total || 0)}</dd></div><div class="data-list__row"><dt>Envío</dt><dd>${formatMoney(order.shipping_cost || 0)}</dd></div><div class="data-list__row"><dt>IVA</dt><dd>${formatMoney(order.tax || 0)}</dd></div><div class="data-list__row data-list__row--total"><dt>Total</dt><dd>${order.requires_quote && order.status === "quote" ? "A cotizar" : formatMoney(order.total || 0)}</dd></div>`;
   itemsCard.appendChild(totals);
   container.appendChild(itemsCard);
 
-  if (order.requires_quote || order.status === "quote") {
+  if (order.requires_quote && !order.paid_at && ["quote", "pending_payment", "failed"].includes(order.status)) {
     const quote = document.createElement("section");
     quote.className = "admin-form";
-    quote.innerHTML = `<div class="admin-form__head"><h3>Cotizar pedido</h3><p class="admin-block__note">Fijá el importe de los ítems a cotizar. Se suma al subtotal para calcular el total.</p></div><div class="admin-form__grid"><div class="field"><label class="field__label" for="quote-amount">Importe a cotizar (UYU)</label><input class="input" id="quote-amount" type="number" min="0" value="${order.quoted_total || 0}"></div><div class="field"><label class="field__label" for="quote-notes">Notas para el cliente</label><input class="input" id="quote-notes" value="${escapeHtml(order.quote_notes || "")}"></div></div><label class="checkbox"><input type="checkbox" id="quote-link" checked><span>Generar link de pago al cotizar</span></label><div class="admin-form__actions"><button class="btn btn--primary" id="quote-send">Enviar cotización</button><button class="btn btn--secondary" id="quote-mailto">Escribir un correo al cliente</button></div>`;
+    quote.innerHTML = `<div class="admin-form__head"><h3>Cotizar pedido</h3><p class="admin-block__note">Fijá el importe de los ítems a cotizar. Se suma al subtotal para calcular el total.</p></div><div class="admin-form__grid"><div class="field">${items.filter(it => it.is_quote).map(it => `<label class="field__label" for="quote-${it.id}">${escapeHtml(it.product_name)} × ${it.quantity}: importe total de la línea (UYU)</label><input class="input" id="quote-${it.id}" data-quote-item="${it.id}" type="number" min="0" step="1" value="${it.quoted_amount ?? 0}">`).join("")}</div><div class="field"><label class="field__label" for="quote-notes">Notas para el cliente</label><input class="input" id="quote-notes" value="${escapeHtml(order.quote_notes || "")}"></div></div><label class="checkbox"><input type="checkbox" id="quote-link" checked><span>Generar link de pago al cotizar</span></label><div class="admin-form__actions"><button class="btn btn--primary" id="quote-send">Enviar cotización</button><button class="btn btn--secondary" id="quote-mailto">Escribir un correo al cliente</button></div>`;
     container.appendChild(quote);
   }
 
@@ -892,6 +898,18 @@ function renderOrderDetail(container, res) {
     if (e.target.closest("[data-act='back-orders']")) {
       location.hash = "#pedidos";
       showPrimary("pedidos");
+      return;
+    }
+    if (e.target.id === "manual-payment-confirm") {
+      const reference = el("#manual-payment-reference", container).value.trim();
+      if (!reference) { toast("Ingresá la referencia del cobro verificado.", "error"); return; }
+      if (!await confirmDialog(`¿Confirmás que recibiste ${formatMoney(order.total)} por ${PAYMENT_LABELS[order.payment_provider]}?`, { title: "Confirmar ingreso", confirmText: "Sí, ingreso verificado" })) return;
+      e.target.disabled = true;
+      try {
+        await adminApi.confirmPayment(order.id, { reference, revision: order.payment_revision, expected_total: order.total });
+        toast("Pago confirmado.", "success");
+        await loadOrders(); await openOrderDetail(order.id);
+      } catch (error) { toast(error.message, "error"); e.target.disabled = false; }
       return;
     }
     if (e.target.id === "order-save") {
@@ -922,7 +940,7 @@ function renderOrderDetail(container, res) {
         const amount = Number(el("#quote-amount")?.value || 0);
         const notes = el("#quote-notes")?.value || "";
         const gen = el("#quote-link")?.checked !== false;
-        const res = await adminApi.quoteOrder(order.id, { quote_amount: amount, quote_notes: notes, generate_payment_link: gen });
+        const res = await adminApi.quoteOrder(order.id, { quote_amount: amount, quote_items: Object.fromEntries(els("[data-quote-item]", container).map(node => [node.dataset.quoteItem, Number(node.value)])), quote_notes: notes, generate_payment_link: gen });
         toast("Cotización enviada/actualizada.", "success");
         if (res?.checkoutUrl) {
           toast("Link de pago generado.", "success");
@@ -1040,6 +1058,7 @@ function editProduct(id) {
     <input type="hidden" id="prod-id" value="${escapeHtml(prod?.id || "")}">
     <div class="admin-form__section"><h4>Información básica</h4><div class="admin-form__grid"><div class="field"><label class="field__label" for="prod-name">Nombre *</label><input class="input" id="prod-name" value="${escapeHtml(prod?.name || "")}" required></div><div class="field"><label class="field__label" for="prod-slug">Identificador (slug) *</label><input class="input" id="prod-slug" value="${escapeHtml(prod?.slug || "")}" required></div></div><div class="field"><label class="field__label" for="prod-short">Descripción corta</label><input class="input" id="prod-short" maxlength="300" value="${escapeHtml(prod?.short_description || "")}"></div><div class="field"><label class="field__label" for="prod-desc">Descripción</label><textarea class="textarea" id="prod-desc">${escapeHtml(prod?.description || "")}</textarea></div></div>
     <div class="admin-form__section"><h4>Precio y modo</h4><div class="admin-form__grid"><div class="field"><label class="field__label" for="prod-mode">Modo de precio</label><select class="select" id="prod-mode"><option value="fixed">Precio fijo</option><option value="quote">A cotizar</option></select></div><div class="field"><label class="field__label" for="prod-price">Precio (UYU)</label><input class="input" id="prod-price" type="number" min="0" value="${prod?.price ?? 0}"></div><div class="field"><label class="field__label" for="prod-compare">Precio tachado</label><input class="input" id="prod-compare" type="number" min="0" value="${prod?.compare_at_price ?? ""}"></div></div><p class="admin-block__note">Si el modo es "A cotizar", el precio puede quedar en 0. El precio tachado debe ser igual o mayor al precio de venta.</p></div>
+    <div class="admin-form__section"><h4>Precio según medio de pago</h4><p class="admin-block__note">Solo afecta a este producto. El porcentaje no se aplica al envío. Para cotizaciones se aplica al importe que presupuestes.</p><div class="admin-form__grid"><label class="field"><span class="field__label">Regla</span><select class="select" id="prod-payment-rule"><option value="none">Precio único</option><option value="mp_surcharge">Precio base + recargo por Mercado Pago</option><option value="cash_discount">Precio publicado con descuento por transferencia / contado</option></select></label><label class="field"><span class="field__label">Porcentaje</span><input class="input" id="prod-payment-percent" type="number" min="0" max="100" step="1" value="${prod?.payment_percent ?? 12}"></label></div><p id="prod-payment-preview" class="alert alert--info" aria-live="polite"></p></div>
     <div class="admin-form__section"><h4>Categoría y visibilidad</h4><div class="admin-form__grid"><div class="field"><label class="field__label" for="prod-cat">Categoría</label><select class="select" id="prod-cat"><option value="">Sin categoría</option></select><button class="btn btn--secondary btn--sm" type="button" id="prod-new-category">Crear categoría o subcategoría</button></div><div class="field"><label class="field__label" for="prod-sort">Orden</label><input class="input" id="prod-sort" type="number" value="${prod?.sort_order ?? 0}"></div></div><label class="checkbox"><input type="checkbox" id="prod-active" ${prod?.active ? "checked" : ""}><span>Activo (visible en el sitio)</span></label><label class="checkbox"><input type="checkbox" id="prod-featured" ${prod?.featured ? "checked" : ""}><span>Destacado</span></label></div>
     <div class="admin-form__section"><h4>Stock</h4><label class="checkbox"><input type="checkbox" id="prod-manage" ${prod?.manage_stock ? "checked" : ""}><span>Gestionar stock</span></label><div class="field"><label class="field__label" for="prod-stock">Stock</label><input class="input" id="prod-stock" type="number" min="0" value="${prod?.stock ?? 0}"></div><div class="field"><label class="field__label" for="prod-min">Cantidad mínima</label><input class="input" id="prod-min" type="number" min="1" value="${prod?.min_quantity ?? 1}"></div><div class="field"><label class="field__label" for="prod-lead">Días de producción</label><input class="input" id="prod-lead" type="number" min="0" value="${prod?.lead_time_days ?? 3}"></div></div>
     <div class="admin-form__section"><h4>Personalización</h4><label class="checkbox"><input type="checkbox" id="prod-pers" ${prod?.personalization_enabled ? "checked" : ""}><span>Habilitar campo de personalización</span></label><div class="field"><label class="field__label" for="prod-pers-prompt">Indicación al cliente</label><input class="input" id="prod-pers-prompt" value="${escapeHtml(prod?.personalization_prompt || "")}"></div></div>
@@ -1051,6 +1070,16 @@ function editProduct(id) {
   secondary.appendChild(form);
 
   const readOptions = productOptionsEditor(el("#prod-options", form), prod?.options || []);
+  const paymentRule = el("#prod-payment-rule", form);
+  paymentRule.value = prod?.payment_rule || "none";
+  const updatePaymentPreview = () => {
+    const percent = Number(el("#prod-payment-percent", form).value || 0);
+    const line = { line_total: Number(el("#prod-price", form).value || 0), payment_rule: paymentRule.value, payment_percent: percent };
+    el("#prod-payment-percent", form).disabled = paymentRule.value === "none";
+    el("#prod-payment-preview", form).textContent = `Ejemplo sin opciones ni cupón: Mercado Pago ${formatMoney(paymentTotals([line], { method: "mercadopago" }).total)} · Transferencia / contado ${formatMoney(paymentTotals([line], { method: "transfer" }).total)}. Importes redondeados a pesos enteros. Los medios deben estar habilitados en Ajustes.`;
+  };
+  [paymentRule, el("#prod-payment-percent", form), el("#prod-price", form)].forEach(node => node.addEventListener("input", updatePaymentPreview));
+  updatePaymentPreview();
   const modeSel = el("#prod-mode", form);
   if (prod?.pricing_mode) modeSel.value = prod.pricing_mode;
   const catSel = el("#prod-cat", form);
@@ -1159,6 +1188,8 @@ function editProduct(id) {
         description: el("#prod-desc", form)?.value,
         pricing_mode: el("#prod-mode", form)?.value,
         price: Number(el("#prod-price", form)?.value || 0),
+        payment_rule: paymentRule.value,
+        payment_percent: Number(el("#prod-payment-percent", form).value || 0),
         compare_at_price: el("#prod-compare", form)?.value === "" ? null : Number(el("#prod-compare", form)?.value || 0),
         category_id: el("#prod-cat", form)?.value || null,
         sort_order: Number(el("#prod-sort", form)?.value || 0),
@@ -1549,6 +1580,8 @@ function renderSettings(container) {
     <div class="admin-form__section"><h4>Negocio</h4><div class="admin-form__grid"><div class="field"><label class="field__label" for="set-name">Nombre</label><input class="input" id="set-name" value="${escapeHtml(s.business?.name || "")}"></div><div class="field"><label class="field__label" for="set-whatsapp">WhatsApp</label><input class="input" id="set-whatsapp" value="${escapeHtml(s.business?.whatsapp || "")}"></div><div class="field"><label class="field__label" for="set-email">Email</label><input class="input" id="set-email" value="${escapeHtml(s.business?.email || "")}"></div><div class="field"><label class="field__label" for="set-phone">Teléfono</label><input class="input" id="set-phone" value="${escapeHtml(s.business?.phone || "")}"></div><div class="field"><label class="field__label" for="set-address">Dirección</label><input class="input" id="set-address" value="${escapeHtml(s.business?.address || "")}"></div><div class="field"><label class="field__label" for="set-city">Ciudad</label><input class="input" id="set-city" value="${escapeHtml(s.business?.city || "")}"></div></div></div>
     <div class="admin-form__section"><h4>Colores de marca</h4><div class="admin-form__grid"><div class="field"><label class="field__label" for="set-primary">Color primario</label><div class="color-field"><input type="color" id="set-primary" value="${escapeHtml(s.brand?.primary || "#134E9D")}"><input class="input" id="set-primary-hex" value="${escapeHtml(s.brand?.primary || "#134E9D")}"></div></div><div class="field"><label class="field__label" for="set-accent">Color acento</label><div class="color-field"><input type="color" id="set-accent" value="${escapeHtml(s.brand?.accent || "#7A9A78")}"><input class="input" id="set-accent-hex" value="${escapeHtml(s.brand?.accent || "#7A9A78")}"></div></div><div class="field"><label class="field__label" for="set-ink">Color texto</label><div class="color-field"><input type="color" id="set-ink" value="${escapeHtml(s.brand?.ink || "#1F2933")}"><input class="input" id="set-ink-hex" value="${escapeHtml(s.brand?.ink || "#1F2933")}"></div></div></div></div>
     <div class="admin-form__section"><h4>Checkout</h4><div class="admin-form__grid"><div class="field"><label class="field__label" for="set-ship">Costo de envío</label><input class="input" id="set-ship" type="number" value="${s.checkout?.shipping_cost ?? 0}"></div><div class="field"><label class="field__label" for="set-free">Envío gratis desde</label><input class="input" id="set-free" type="number" value="${s.checkout?.free_shipping_threshold ?? 0}"></div></div><label class="checkbox"><input type="checkbox" id="set-pickup" ${s.checkout?.allow_pickup ? "checked" : ""}><span>Permitir retiro en local</span></label><div class="field"><label class="field__label" for="set-pickup-note">Nota de retiro</label><input class="input" id="set-pickup-note" value="${escapeHtml(s.checkout?.pickup_note || "")}"></div></div>
+    <div class="admin-form__section"><h4>Medios de pago</h4><p class="admin-block__note">Los descuentos y recargos se configuran en cada producto. Habilitar transferencia no activa descuentos por sí solo. Mercado Pago además requiere la configuración del servidor.</p><label class="checkbox"><input id="set-mp-enabled" type="checkbox" ${s.payments?.mercadopago_enabled !== false ? "checked" : ""}><span>Ofrecer Mercado Pago</span></label><label class="checkbox"><input id="set-transfer-enabled" type="checkbox" ${s.payments?.transfer?.enabled ? "checked" : ""}><span>Ofrecer transferencia</span></label><div class="admin-form__grid">${[["bank","Banco"],["holder","Titular"],["account","Cuenta"]].map(([key,label]) => `<label class="field"><span class="field__label">${label}</span><input class="input" id="set-transfer-${key}" maxlength="160" value="${escapeHtml(s.payments?.transfer?.[key] || "")}"></label>`).join("")}</div><p class="admin-block__note">Moneda de la cuenta: pesos uruguayos (UYU). Los datos se entregan al cliente después de crear el pedido.</p><label class="field"><span class="field__label">Instrucciones de transferencia</span><textarea class="textarea" id="set-transfer-instructions" maxlength="1500">${escapeHtml(s.payments?.transfer?.instructions || "")}</textarea></label><label class="checkbox"><input id="set-cash-enabled" type="checkbox" ${s.payments?.cash?.enabled ? "checked" : ""}><span>Ofrecer pago al contado en efectivo</span></label><label class="field"><span class="field__label">Dónde y cuándo pagar en efectivo</span><textarea class="textarea" id="set-cash-instructions" maxlength="1500">${escapeHtml(s.payments?.cash?.instructions || "")}</textarea></label></div>
+    <div class="admin-form__section"><h4>Datos legales</h4><label class="field"><span class="field__label">Razón social</span><input class="input" id="set-legal-name" maxlength="160" value="${escapeHtml(s.business?.legal_name || "")}"></label><label class="field"><span class="field__label">RUT</span><input class="input" id="set-tax-id" maxlength="160" value="${escapeHtml(s.business?.tax_id || "")}"></label><p class="admin-block__note">Completá con los datos reales antes de abrir las ventas.</p></div>
     <div class="admin-form__section"><h4>Impuestos</h4><label class="checkbox"><input type="checkbox" id="set-tax-inc" ${s.tax?.include_tax ? "checked" : ""}><span>IVA incluido</span></label><div class="admin-form__grid"><div class="field"><label class="field__label" for="set-tax-rate">Tasa %</label><input class="input" id="set-tax-rate" type="number" value="${s.tax?.rate ?? 22}"></div><div class="field"><label class="field__label" for="set-tax-label">Etiqueta</label><input class="input" id="set-tax-label" value="${escapeHtml(s.tax?.label || "IVA incluido")}"></div></div></div>
     <div class="admin-form__section"><h4>Notificaciones</h4><div class="field"><label class="field__label" for="set-admin-email">Correo de avisos</label><input class="input" id="set-admin-email" value="${escapeHtml(s.notifications?.admin_email || "")}"></div><label class="checkbox"><input type="checkbox" id="set-notify-paid" ${s.notifications?.notify_on_paid !== false ? "checked" : ""}><span>Avisar al admin cuando hay pago confirmado</span></label><label class="checkbox"><input type="checkbox" id="set-notify-inq" ${s.notifications?.notify_on_inquiry !== false ? "checked" : ""}><span>Avisar al admin en nuevas consultas</span></label><label class="checkbox"><input type="checkbox" id="set-notify-cust" ${s.notifications?.notify_customer !== false ? "checked" : ""}><span>Avisar al cliente por cambios de estado</span></label></div>
     <div class="admin-form__actions"><button class="btn btn--primary" type="submit">Guardar ajustes</button></div>
@@ -1569,6 +1602,8 @@ function renderSettings(container) {
     try {
       const payload = {
         business: {
+          legal_name: el("#set-legal-name", form)?.value,
+          tax_id: el("#set-tax-id", form)?.value,
           name: el("#set-name", form)?.value,
           whatsapp: el("#set-whatsapp", form)?.value,
           email: el("#set-email", form)?.value,
@@ -1586,6 +1621,11 @@ function renderSettings(container) {
           free_shipping_threshold: Number(el("#set-free", form)?.value || 0),
           allow_pickup: el("#set-pickup", form)?.checked,
           pickup_note: el("#set-pickup-note", form)?.value,
+        },
+        payments: {
+          mercadopago_enabled: el("#set-mp-enabled", form).checked,
+          transfer: { enabled: el("#set-transfer-enabled", form).checked, currency: "UYU", bank: el("#set-transfer-bank", form).value, holder: el("#set-transfer-holder", form).value, account: el("#set-transfer-account", form).value, instructions: el("#set-transfer-instructions", form).value },
+          cash: { enabled: el("#set-cash-enabled", form).checked, instructions: el("#set-cash-instructions", form).value },
         },
         tax: {
           include_tax: el("#set-tax-inc", form)?.checked,

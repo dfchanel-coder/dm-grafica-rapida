@@ -1,3 +1,4 @@
+import { fillBusiness, fillCatalog, productFallback } from "./page-content.js";
 import "dotenv/config";
 
 import fs from "node:fs/promises";
@@ -15,7 +16,7 @@ import { getSettings, toPublicSettings } from "./settings.js";
 import { requireAdmin, requireCsrf, readAdminSession } from "./auth.js";
 import { createAdminHandlers } from "./admin.js";
 import { listCategories, listProducts, getProductBySlug, getSeoProduct, getSeoCategory } from "./catalog.js";
-import { createOrder, trackOrder, reconcileOrder, notifyOrderStatus } from "./orders.js";
+import { previewCart, orderPaymentOptions, changeOrderPayment, confirmManualPayment, createOrder, trackOrder, reconcileOrder, notifyOrderStatus } from "./orders.js";
 import { createWebhookHandler, checkoutEnabled, paymentMode } from "./payments.js";
 import { sendEmail } from "./email.js";
 import { newInquiryAdmin } from "./email-templates.js";
@@ -134,6 +135,18 @@ app.get("/api/products/:slug", async (req, res) => {
   return res.json({ product });
 });
 
+app.post("/api/cart/preview", limiter(60_000, 120, "Esperá un momento antes de actualizar el carrito."), async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.json(await previewCart({ items: req.body?.items || [], couponCode: req.body?.coupon_code || "", deliveryMethod: req.body?.delivery_method || "shipping" }));
+});
+app.post("/api/orders/payment-options", trackLimiter, async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.json(await orderPaymentOptions(req.body?.code || "", req.body?.email || ""));
+});
+app.post("/api/orders/payment", trackLimiter, async (req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.json(await changeOrderPayment({ code: req.body?.code, email: req.body?.email, method: req.body?.method, expectedTotal: req.body?.expected_total, revision: req.body?.revision }));
+});
 app.post("/api/orders", checkoutLimiter, async (req, res) => {
   try {
     const result = await createOrder({
@@ -142,6 +155,8 @@ app.post("/api/orders", checkoutLimiter, async (req, res) => {
       delivery: req.body?.delivery || {},
       notes: req.body?.notes || "",
       couponCode: req.body?.coupon_code || "",
+      paymentMethod: req.body?.payment_method || "mercadopago",
+      expectedTotal: req.body?.expected_total,
     });
     return res.status(201).json({
       code: result.order.code,
@@ -300,6 +315,9 @@ app.delete("/api/admin/categories/:id", adminWrite, admin.deleteCategory);
 app.get("/api/admin/orders", adminRead, admin.listOrders);
 app.get("/api/admin/orders/:id", adminRead, admin.getOrder);
 app.patch("/api/admin/orders/:id", adminWrite, admin.updateOrder);
+app.post("/api/admin/orders/:id/confirm-payment", adminWrite, async (req, res) => {
+  res.json(await confirmManualPayment(req.params.id, req.admin.id, { reference: req.body?.reference, revision: req.body?.revision, expectedTotal: req.body?.expected_total }));
+});
 app.post("/api/admin/orders/:id/quote", adminWrite, admin.quoteOrderHandler);
 app.get("/api/admin/inquiries", adminRead, admin.listInquiries);
 app.patch("/api/admin/inquiries/:id", adminWrite, admin.updateInquiry);
@@ -362,7 +380,7 @@ async function renderPage(res, file, seo = {}) {
   if (seo.jsonLd) {
     html = html.replace(
       /<script type="application\/ld\+json" id="seo-jsonld">[\s\S]*?<\/script>/,
-      `<script type="application/ld+json" id="seo-jsonld">${JSON.stringify(seo.jsonLd)}</script>`,
+      `<script type="application/ld+json" id="seo-jsonld">${JSON.stringify(seo.jsonLd).replaceAll("<", "\\u003c")}</script>`,
     );
   } else {
     // Las rutas relativas del JSON-LD de la página se vuelven absolutas.
@@ -384,6 +402,15 @@ async function renderPage(res, file, seo = {}) {
     );
   }
 
+  const settings = await getSettings();
+  html = fillBusiness(html, settings.business);
+  if (["index.html", "pt/index.html", "catalogo.html"].includes(file)) {
+    const [products, categories] = await Promise.all([listProducts(), listCategories()]);
+    const requestUrl = new URL(res.req.originalUrl, "http://localhost");
+    const category = requestUrl.pathname.startsWith("/categoria/") ? decodeURIComponent(requestUrl.pathname.split("/").pop()) : requestUrl.searchParams.get("categoria") || "";
+    html = fillCatalog(html, { products, categories, category, search: requestUrl.searchParams.get("q") || "", home: file !== "catalogo.html" });
+  }
+  if (file === "producto.html" && seo.product) html = html.replace(/(<div[^>]*data-product-root[^>]*>)[\s\S]*?(<\/div>)/, (_m, open, close) => open + productFallback(seo.product) + close);
   res.set("Cache-Control", "no-store");
   return res.send(versionAssetLinks(html, assetsVersion));
 }
@@ -397,8 +424,10 @@ function escapeHtml(value) {
 }
 
 app.get("/", async (_req, res) => renderPage(res, "index.html"));
-app.get("/pt", async (_req, res) => renderPage(res, "pt/index.html"));
-app.get("/pt/", async (_req, res) => renderPage(res, "pt/index.html"));
+app.get(["/pt", "/pt/"], async (req, res) => {
+  if (req.path === "/pt") return res.redirect(308, "/pt/" + (req.originalUrl.includes("?") ? req.originalUrl.slice(req.originalUrl.indexOf("?")) : ""));
+  return renderPage(res, "pt/index.html", { canonical: `${(process.env.PUBLIC_BASE_URL || "").replace(/\/$/, "")}/pt/` });
+});
 
 app.get("/catalogo", async (_req, res) => renderPage(res, "catalogo.html"));
 
@@ -431,6 +460,7 @@ app.get("/producto/:slug", async (req, res) => {
     || `${product.name} personalizados en Rivera, Uruguay. Pedí tu cotización online.`;
 
   return renderPage(res, "producto.html", {
+    product: await getProductBySlug(product.slug),
     title,
     description,
     canonical: `${base}/producto/${product.slug}`,
@@ -442,9 +472,9 @@ app.get("/producto/:slug", async (req, res) => {
       image: image ? [image] : undefined,
       category: product.category_name || undefined,
       brand: { "@type": "Brand", name: "DM Comunicación Visual" },
-      offers: {
+      offers: product.pricing_mode === "quote" || product.requires_quote ? undefined : {
         "@type": "Offer",
-        availability: "https://schema.org/InStock",
+        availability: product.manage_stock && product.stock <= 0 ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
         priceCurrency: product.currency || "UYU",
         price: product.pricing_mode === "quote" ? undefined : Number(product.price || 0),
         url: `${base}/producto/${product.slug}`,
@@ -575,6 +605,7 @@ app.use((_req, res) => res.status(404).send("Página no encontrada."));
 app.use((error, _req, res, _next) => {
   console.error("Error no controlado:", error?.code || error?.name || "Error", "-", error?.message || "(sin mensaje)");
   if (res.headersSent) return;
+  if (error instanceof ValidationError) return res.status(400).json({ error: error.message });
   if (error?.code === "LIMIT_FILE_SIZE") {
     return res.status(413).json({ error: "La imagen supera los 4 MB." });
   }

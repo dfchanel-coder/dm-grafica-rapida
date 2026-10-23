@@ -1,6 +1,9 @@
+import { paymentTotals, allocateAmount } from "../public/js/payment-pricing.js";
+import { paymentMethods, paymentSnapshot, requirePaymentMethod } from "./payment-methods.js";
+import { settleOrder } from "./settlement.js";
 import { pool } from "./db.js";
 import { getSettings, getAdminEmail } from "./settings.js";
-import { calculateTotals, resolveSelection, shippingCostFor } from "./pricing.js";
+import { resolveSelection, shippingCostFor } from "./pricing.js";
 import { createPreference, fetchPaymentsForOrder, applyPayment, checkoutEnabled, paymentMode } from "./payments.js";
 import { sendEmail } from "./email.js";
 import {
@@ -66,7 +69,7 @@ export async function prepareCart(rawItems) {
   const ids = [...new Set(rawItems.map((item) => item?.productId).filter(Boolean))];
   const result = await pool.query(
     `SELECT p.id, p.slug, p.name, p.price, p.options, p.min_quantity, p.manage_stock, p.stock,
-            p.active, p.pricing_mode, p.requires_quote, p.images, p.lead_time_days
+            p.active, p.pricing_mode, p.requires_quote, p.images, p.lead_time_days, p.payment_rule, p.payment_percent
        FROM products p
        LEFT JOIN categories c ON c.id = p.category_id
        LEFT JOIN categories parent ON parent.id = c.parent_id
@@ -110,6 +113,8 @@ export async function prepareCart(rawItems) {
     const unitPrice = isQuote ? 0 : Math.max(0, Number(product.price || 0) + delta);
 
     lines.push({
+      payment_rule: product.payment_rule || "none",
+      payment_percent: product.payment_percent || 0,
       product_id: product.id,
       product_name: product.name,
       product_slug: product.slug,
@@ -172,7 +177,7 @@ async function resolveCoupon(code, subtotal) {
  * y el administrador es el que fija el precio y genera el link de pago.
  * Si todos tienen precio, se genera el link de Mercado Pago al instante.
  */
-export async function createOrder({ customer, items, delivery, notes = "", couponCode = "" }) {
+export async function createOrder({ customer, items, delivery, notes = "", couponCode = "", paymentMethod = "mercadopago", expectedTotal }) {
   const settings = await getSettings();
 
   const name = cleanText(customer?.name, { max: 120, min: 2, field: "name", label: "el nombre" });
@@ -203,12 +208,10 @@ export async function createOrder({ customer, items, delivery, notes = "", coupo
   const discount = couponInfo?.discount || 0;
 
   const shippingCost = shippingCostFor({ settings, subtotal: subtotal - discount, deliveryMethod });
-  const totals = calculateTotals({
-    subtotal,
-    shippingCost,
-    discount,
-    tax: settings.tax || {},
-  });
+  requirePaymentMethod(settings, paymentMethod, { quote: hasQuote });
+  const totals = paymentTotals(lines, { method: paymentMethod, discount, shipping: shippingCost, tax: settings.tax || {} });
+  validateTotal(totals.total, expectedTotal);
+
 
   const minOrder = Number(settings.checkout?.min_order || 0);
   if (!hasQuote && minOrder > 0 && totals.total < minOrder) {
@@ -225,10 +228,10 @@ export async function createOrder({ customer, items, delivery, notes = "", coupo
          code, status, customer_name, customer_email, customer_phone, customer_tax_id,
          delivery_method, shipping_address, shipping_city, shipping_department,
          notes, subtotal, discount, shipping_cost, tax, total, currency,
-         coupon_code, requires_quote, estimated_delivery
+         coupon_code, requires_quote, estimated_delivery, payment_provider, payment_adjustment, payment_snapshot, tax_snapshot, payment_revision
        ) VALUES (
          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-         $11, $12, $13, $14, $15, $16, 'UYU', $17, $18, $19
+         $11, $12, $13, $14, $15, $16, 'UYU', $17, $18, $19, $20, $21, $22, $23, 1
        ) RETURNING *`,
       [
         code,
@@ -239,7 +242,7 @@ export async function createOrder({ customer, items, delivery, notes = "", coupo
         totals.subtotal, totals.discount, totals.shipping, totals.tax, totals.total,
         couponInfo?.coupon.code || null,
         hasQuote,
-        estimateDelivery(lines),
+        estimateDelivery(lines), paymentMethod, totals.adjustment, JSON.stringify(paymentSnapshot(settings, paymentMethod)), JSON.stringify(settings.tax || {}),
       ],
     );
     order = insert.rows[0];
@@ -248,13 +251,13 @@ export async function createOrder({ customer, items, delivery, notes = "", coupo
       await client.query(
         `INSERT INTO order_items (
            order_id, product_id, product_name, product_slug, unit_price, quantity,
-           options, customization, image_url, line_total, is_quote
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+           options, customization, image_url, line_total, is_quote, payment_rule, payment_percent
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
         [
           order.id, line.product_id, line.product_name, line.product_slug,
           line.unit_price, line.quantity,
           JSON.stringify(line.options), line.customization, line.image_url,
-          line.line_total, line.is_quote,
+          line.line_total, line.is_quote, line.payment_rule, line.payment_percent,
         ],
       );
     }
@@ -273,29 +276,22 @@ export async function createOrder({ customer, items, delivery, notes = "", coupo
     return { order, checkoutUrl: null, requiresQuote: true };
   }
 
-  if (!checkoutEnabled()) {
-    return { order, checkoutUrl: null, checkoutDisabled: true, requiresQuote: false };
+  if (paymentMethod !== "mercadopago") {
+    await notifyPaymentInstructions(order);
+    await notifyNewOrder(order.id);
+    return { order, checkoutUrl: null, requiresQuote: false };
   }
 
   try {
-    const { preferenceId, checkoutUrl } = await createPreference({
-      order,
-      items: lines,
-      customer: { name, email },
-    });
-    await pool.query(
-      "UPDATE orders SET mp_preference_id = $2, updated_at = NOW() WHERE id = $1",
-      [order.id, preferenceId],
-    );
-    order.mp_preference_id = preferenceId;
+    const checkoutUrl = await issuePaymentLink(order);
     return { order, checkoutUrl, requiresQuote: false };
   } catch (error) {
     console.error("No se pudo crear la preferencia de Mercado Pago:", error?.message || "Error");
     await pool.query(
-      "UPDATE orders SET status = 'failed', updated_at = NOW() WHERE id = $1",
-      [order.id],
+      "UPDATE orders SET status = 'failed', updated_at = NOW() WHERE id = $1 AND payment_revision = $2 AND paid_at IS NULL AND status = 'pending_payment'",
+      [order.id, order.payment_revision],
     );
-    throw new ValidationError("No pudimos iniciar el pago. Probá de nuevo en un momento.");
+    return { order, checkoutUrl: null, requiresQuote: false };
   }
 }
 
@@ -476,7 +472,13 @@ export async function trackOrder(code, email) {
   return {
     code: order.code,
     status: order.status,
-    statusLabel: STATUS_LABELS[order.status] || order.status,
+    statusLabel: order.status === "pending_payment" && order.payment_provider === "transfer" ? "Pendiente de transferencia"
+      : order.status === "pending_payment" && order.payment_provider === "cash" ? "Pendiente de pago en efectivo" : STATUS_LABELS[order.status] || order.status,
+    payment_provider: order.payment_provider,
+    payment_adjustment: order.payment_adjustment,
+    payment_snapshot: order.payment_snapshot,
+    payment_revision: order.payment_revision,
+    quote_notes: order.quote_notes,
     customer_name: order.customer_name,
     delivery_method: order.delivery_method,
     shipping_address: order.shipping_address,
@@ -504,6 +506,9 @@ export async function trackOrder(code, email) {
       customization: item.customization,
       image_url: item.image_url,
       is_quote: item.is_quote,
+      quoted_amount: item.quoted_amount,
+      payment_rule: item.payment_rule,
+      payment_percent: item.payment_percent,
     })),
   };
 }
@@ -542,78 +547,128 @@ export async function reconcileOrder(code, email) {
  * El administrador fija la cotización de los productos a medida y genera el
  * link de pago del pedido.
  */
-export async function quoteOrder(orderId, { quoteAmount, quoteNotes = "", generatePaymentLink = true }) {
-  const order = await getOrderById(orderId);
-  if (!order) throw new ValidationError("El pedido no existe.", "order");
-  if (!order.requires_quote || order.paid_at || !["quote", "pending_payment", "failed", "review"].includes(order.status)) {
-    throw new ValidationError("Este pedido no admite una nueva cotización.", "order");
-  }
-
-  const amount = cleanInteger(quoteAmount ?? 0, { min: 0, max: 10_000_000, field: "quoteAmount", label: "la cotización" });
-  const notes = cleanMultiline(quoteNotes, { max: 1500, field: "quoteNotes", label: "la nota" });
-
-  const newTotal = Number(order.subtotal) - Number(order.discount) + amount + Number(order.shipping_cost) + Number(order.tax);
-
-  const quoteUpdate = await pool.query(
-    `UPDATE orders
-        SET quoted_total = $2, quote_notes = $3, total = $4, status = 'pending_payment', updated_at = NOW()
-      WHERE id = $1 AND paid_at IS NULL AND requires_quote
-        AND status IN ('quote', 'pending_payment', 'failed', 'review')
-      RETURNING *`,
-    [orderId, amount, notes, newTotal],
-  );
-  const updated = quoteUpdate.rows[0];
-  if (!updated) throw new ValidationError("El pedido cambió de estado. Recargá antes de cotizar.", "order");
-
-  let checkoutUrl = null;
-  if (generatePaymentLink && checkoutEnabled()) {
-    try {
-      const { preferenceId, checkoutUrl: url } = await createPreference({
-        order: updated,
-        customer: { name: updated.customer_name, email: updated.customer_email },
-      });
-      checkoutUrl = url;
-      await pool.query(
-        "UPDATE orders SET mp_preference_id = $2, quote_sent_at = NOW(), updated_at = NOW() WHERE id = $1",
-        [orderId, preferenceId],
-      );
-    } catch (error) {
-      console.error("No se pudo generar el link de pago de la cotización:", error?.message || "Error");
+export async function quoteOrder(orderId, { quoteAmount, quoteItems, quoteNotes = "", generatePaymentLink = true }) {
+  const client = await pool.connect();
+  let updated;
+  try {
+    await client.query("BEGIN");
+    const order = (await client.query("SELECT * FROM orders WHERE id = $1 FOR UPDATE", [orderId])).rows[0];
+    if (!order || !order.requires_quote || order.paid_at || !["quote", "pending_payment", "failed"].includes(order.status)) throw new ValidationError("Este pedido no admite una nueva cotización.");
+    const lines = (await client.query("SELECT * FROM order_items WHERE order_id = $1 ORDER BY id", [orderId])).rows;
+    const quotes = lines.filter(l => l.is_quote);
+    let amounts;
+    if (quoteItems && typeof quoteItems === "object" && !Array.isArray(quoteItems)) {
+      amounts = quotes.map(l => cleanInteger(quoteItems[l.id], { min: 0, max: 10_000_000, label: "el importe de cada producto a cotizar" }));
+    } else {
+      if (quotes.some(l => l.payment_rule !== "none") && quotes.length > 1) throw new ValidationError("Indicá el importe de cada producto para aplicar su regla de pago.");
+      amounts = allocateAmount(cleanInteger(quoteAmount ?? 0, { min: 0, max: 10_000_000 }), quotes.map(l => l.quantity));
     }
-  }
-
-  if (checkoutUrl) {
-    await notifyQuoteReady(updated, checkoutUrl);
-  }
-
+    for (let i = 0; i < quotes.length; i++) {
+      quotes[i].quoted_amount = amounts[i];
+      await client.query("UPDATE order_items SET quoted_amount = $2 WHERE id = $1", [quotes[i].id, amounts[i]]);
+    }
+    const totals = paymentTotals(lines, { method: order.payment_provider, discount: order.discount, shipping: order.shipping_cost, tax: order.tax_snapshot || {} });
+    validateTotal(totals.total);
+    updated = (await client.query(`UPDATE orders SET quoted_total = $2, quote_notes = $3, total = $4, tax = $5,
+      payment_adjustment = $6, status = 'pending_payment', payment_revision = payment_revision + 1,
+      mp_preference_id = NULL, updated_at = NOW() WHERE id = $1 RETURNING *`,
+      [orderId, amounts.reduce((a,b) => a+b,0), cleanMultiline(quoteNotes, { max: 1500 }), totals.total, totals.tax, totals.adjustment])).rows[0];
+    await client.query("COMMIT");
+  } catch (error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); }
+  // El cliente ve la propuesta en seguimiento y elige el medio antes de pagar.
+  let checkoutUrl = null;
+  if (generatePaymentLink && updated.payment_provider === "mercadopago" && checkoutEnabled()) checkoutUrl = await issuePaymentLink(updated);
+  await notifyPaymentInstructions(updated, { quote: true });
   return { order: await getOrderById(orderId), checkoutUrl };
 }
 
-/** Correo al cliente: la cotización está lista y puede pagar. */
-async function notifyQuoteReady(order, checkoutUrl) {
+export { paymentMode };
+
+function validateTotal(total, expected) {
+  if (!Number.isSafeInteger(total) || total < 0 || total > 2_000_000_000) throw new ValidationError("El importe del pedido supera el máximo permitido.");
+  if (expected !== undefined && Number(expected) !== total) throw new ValidationError("El total cambió. Revisá el resumen actualizado antes de confirmar.", "total");
+}
+
+export async function previewCart({ items, couponCode = "", deliveryMethod = "shipping" }) {
+  const { lines, subtotal, hasQuote, settings } = await prepareCart(items);
+  const coupon = await resolveCoupon(couponCode, subtotal);
+  const discount = coupon?.discount || 0;
+  const shipping = shippingCostFor({ settings, subtotal: subtotal - discount, deliveryMethod });
+  const methods = paymentMethods(settings);
+  const totals = Object.fromEntries(Object.keys(methods).map(method => [method, paymentTotals(lines, { method, discount, shipping, tax: settings.tax })]));
+  return { methods, totals, has_quote: hasQuote };
+}
+
+export async function issuePaymentLink(order) {
+  const { preferenceId, checkoutUrl } = await createPreference({ order, customer: { name: order.customer_name, email: order.customer_email } });
+  const saved = await pool.query(`UPDATE orders SET mp_preference_id = $2, updated_at = NOW()
+    WHERE id = $1 AND payment_revision = $3 AND paid_at IS NULL AND status IN ('pending_payment','failed') AND payment_provider = 'mercadopago' RETURNING id`, [order.id, preferenceId, order.payment_revision]);
+  if (!saved.rowCount) throw new ValidationError("El pedido cambió mientras se preparaba el pago. Consultá su estado.");
+  return checkoutUrl;
+}
+
+export async function orderPaymentOptions(code, email) {
+  const tracked = await trackOrder(code, email);
+  if (!tracked) throw new ValidationError("Pedido no encontrado.");
+  const order = (await pool.query("SELECT * FROM orders WHERE code = $1", [tracked.code])).rows[0];
+  if (order.paid_at || !["pending_payment", "failed"].includes(order.status)) throw new ValidationError("Este pedido no admite cambios de pago.");
+  const lines = await getOrderItems(order.id);
+  const settings = await getSettings();
+  return { revision: order.payment_revision, methods: paymentMethods(settings), totals: Object.fromEntries(["mercadopago", "transfer", "cash"].map(method => [method, paymentTotals(lines, { method, discount: order.discount, shipping: order.shipping_cost, tax: order.tax_snapshot || {} })])) };
+}
+
+export async function changeOrderPayment({ code, email, method, expectedTotal, revision }) {
+  const cleanCode = normalizeOrderCode(code), cleanMail = cleanEmail(email);
+  const settings = await getSettings({ fresh: true });
+  requirePaymentMethod(settings, method);
+  const client = await pool.connect();
+  let updated;
+  try {
+    await client.query("BEGIN");
+    const order = (await client.query("SELECT * FROM orders WHERE code = $1 AND lower(customer_email) = $2 FOR UPDATE", [cleanCode, cleanMail])).rows[0];
+    if (!order || order.paid_at || !["pending_payment", "failed"].includes(order.status) || Number(revision) !== order.payment_revision) throw new ValidationError("El pedido cambió o ya no admite cambios. Actualizá su estado.");
+    if (expectedTotal === undefined) throw new ValidationError("Revisá primero el total del medio de pago.");
+    const lines = (await client.query("SELECT * FROM order_items WHERE order_id = $1 ORDER BY id", [order.id])).rows;
+    const totals = paymentTotals(lines, { method, discount: order.discount, shipping: order.shipping_cost, tax: order.tax_snapshot || {} });
+    validateTotal(totals.total, expectedTotal);
+    const snapshot = method === order.payment_provider ? order.payment_snapshot : paymentSnapshot(settings, method);
+    updated = (await client.query(`UPDATE orders SET payment_provider = $2, payment_adjustment = $3, total = $4, tax = $5,
+      payment_snapshot = $6, payment_revision = payment_revision + 1, mp_preference_id = NULL, status = 'pending_payment', updated_at = NOW() WHERE id = $1 RETURNING *`,
+      [order.id, method, totals.adjustment, totals.total, totals.tax, JSON.stringify(snapshot)])).rows[0];
+    await client.query("COMMIT");
+  } catch (error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); }
+  const checkoutUrl = method === "mercadopago" ? await issuePaymentLink(updated) : null;
+  if (method !== "mercadopago") await notifyPaymentInstructions(updated);
+  return { order: await trackOrder(code, email), checkout_url: checkoutUrl };
+}
+
+export async function confirmManualPayment(orderId, adminId, { reference, revision, expectedTotal }) {
+  const cleanReference = cleanText(reference, { min: 1, max: 200, label: "la referencia del cobro" });
+  const client = await pool.connect();
+  let changed = false;
+  try {
+    await client.query("BEGIN");
+    const order = (await client.query("SELECT * FROM orders WHERE id = $1 FOR UPDATE", [orderId])).rows[0];
+    if (!order || !["transfer", "cash"].includes(order.payment_provider)) throw new ValidationError("Este pedido no es de pago manual.");
+    if (order.paid_at) { await client.query("COMMIT"); return { changed: false }; }
+    if (order.status !== "pending_payment" || Number(revision) !== order.payment_revision || Number(expectedTotal) !== order.total) throw new ValidationError("El pedido cambió. Revisá el importe y el medio de pago antes de confirmar.");
+    changed = await settleOrder(client, order, { provider: order.payment_provider, adminId, reference: cleanReference });
+    await client.query("COMMIT");
+  } catch (error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); }
+  if (changed) await notifyOrderPaid(orderId);
+  return { changed };
+}
+
+async function notifyPaymentInstructions(order, { quote = false } = {}) {
   try {
     const settings = await getSettings();
     if (settings.notifications?.notify_customer === false) return;
-
-    const mail = orderConfirmationCustomer({ order, items: [], business: settings.business });
-    const body = mail.html
-      .replace("¡Gracias por tu compra,", "¡Tu cotización está lista,")
-      .replace(
-        /<p style="margin:0 0 18px;color:#5B6B7A;">[\s\S]*?<\/p>/,
-        `<p style="margin:0 0 18px;color:${"#5B6B7A"};">Revisamos tu pedido y preparamos la cotización. Podés completarla con Mercado Pago.</p>`,
-      );
-
-    await sendEmail({
-      to: order.customer_email,
-      subject: `Cotización lista — pedido ${order.code}`,
-      html: body,
-      text: `Tu cotización del pedido ${order.code} está lista. Total a pagar: ${order.total} UYU. Pagá acá: ${checkoutUrl}`,
-      template: "quote_ready_customer",
-      orderId: order.id,
-    });
-  } catch (error) {
-    console.error("No se pudo enviar la cotización al cliente:", error?.name || "Error");
-  }
+    const p = order.payment_snapshot || {};
+    const text = [quote ? "Tu cotización está lista." : "Recibimos tu pedido; el pago todavía está pendiente.",
+      `Pedido ${order.code}. Total: ${order.total} UYU.`,
+      order.payment_provider === "transfer" ? `Transferencia a ${p.bank}. Titular: ${p.holder}. Cuenta: ${p.account}. Moneda: ${p.currency}. Referencia: ${order.code}.` : "",
+      p.instructions || "", `Revisá el detalle y las opciones de pago en ${publicUrl()}/seguimiento?code=${encodeURIComponent(order.code)} usando tu correo.`].filter(Boolean).join("\n\n");
+    const escaped = text.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+    await sendEmail({ to: order.customer_email, subject: `${quote ? "Cotización lista" : "Pedido recibido"} — ${order.code}`, html: `<p style="white-space:pre-line">${escaped}</p>`, text, template: quote ? "quote_ready_customer" : "payment_instructions", orderId: order.id });
+  } catch (error) { console.error("No se pudieron enviar las instrucciones:", error?.name || "Error"); }
 }
-
-export { paymentMode };

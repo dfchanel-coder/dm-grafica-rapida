@@ -97,6 +97,9 @@ export function escapeHtml(value) {
 /* --- Endpoints ------------------------------------------------------------ */
 
 export const api = {
+  previewCart: (payload) => request("/api/cart/preview", { method: "POST", body: payload }),
+  orderPaymentOptions: (code, email) => request("/api/orders/payment-options", { method: "POST", body: { code, email } }),
+  changeOrderPayment: (payload) => request("/api/orders/payment", { method: "POST", body: payload }),
   publicSettings: () => request("/api/settings/public"),
   catalog: () => request("/api/catalog"),
   product: (slug) => request(`/api/products/${encodeURIComponent(slug)}`),
@@ -139,6 +142,7 @@ export const adminApi = {
   updateCategory: (id, payload) => request(`/api/admin/categories/${id}`, { method: "PUT", body: payload, admin: true }),
   deleteCategory: (id) => request(`/api/admin/categories/${id}`, { method: "DELETE", admin: true }),
 
+  confirmPayment: (id, payload) => request(`/api/admin/orders/${id}/confirm-payment`, { method: "POST", body: payload, admin: true }),
   orders: (params = {}) => {
     const query = new URLSearchParams(params).toString();
     return request(`/api/admin/orders${query ? `?${query}` : ""}`);

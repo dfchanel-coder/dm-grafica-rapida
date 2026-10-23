@@ -1,11 +1,13 @@
+import { PAYMENT_LABELS } from "./payment-ui.js";
 /**
  * Página del carrito: listado de productos, cantidades, cupón y resumen.
  */
 
-import { formatMoney, escapeHtml } from "./api.js";
+import { api, formatMoney, escapeHtml } from "./api.js";
 import { el, clear, toast } from "./ui.js";
 import {
   readCart,
+  toApiItems,
   updateQuantity,
   removeFromCart,
   estimateSubtotal,
@@ -39,7 +41,7 @@ function render() {
   const hasQuote = cartHasQuotes();
   const subtotal = estimateSubtotal();
 
-  const rows = items.map((item) => {
+  const rows = items.map((item,index) => {
     const total = lineTotal(item);
     const optionText = Object.entries(item.options || {})
       .map(([key, value]) => `${key}: ${value}`)
@@ -68,7 +70,7 @@ function render() {
             <button type="button" data-plus data-product-id="${item.productId}" data-signature="${escapeHtml(item.signature)}" aria-label="Agregar una unidad de ${escapeHtml(item.name)}">+</button>
           </span>
         </td>
-        <td data-label="Total" style="text-align:right; white-space:nowrap;">
+        <td data-label="Total" data-cart-line="${index}" style="text-align:right; white-space:nowrap;">
           ${total === null
             ? '<span class="price--quote">A cotizar</span>'
             : `<strong>${formatMoney(total)}</strong>`}
@@ -111,6 +113,7 @@ function render() {
           ? '<div class="summary-row"><span>Productos a cotizar</span><span style="color:var(--color-accent); font-weight:600;">Te cotizamos</span></div>'
           : ""}
 
+        <div data-cart-payment-preview aria-live="polite">Verificando precios por medio de pago…</div>
         <div class="coupon-row">
           <label class="sr-only" for="cupon">Código de descuento</label>
           <input class="input" type="text" id="cupon" placeholder="Código de descuento" value="${escapeHtml(coupon)}" autocomplete="off">
@@ -131,6 +134,7 @@ function render() {
         <a class="btn btn--primary btn--block btn--lg" href="/checkout" style="margin-top:8px;">Ir al checkout</a>
       </aside>
     </div>`;
+  previewMethods();
 }
 
 function bindEvents() {
@@ -168,6 +172,23 @@ function bindEvents() {
       render();
     }
   });
+}
+
+
+
+let previewSequence = 0;
+async function previewMethods() {
+  const sequence = ++previewSequence;
+  try {
+    const preview = await api.previewCart({ items: toApiItems(), coupon_code: getCouponCode(), delivery_method: "pickup" });
+    if (sequence !== previewSequence) return;
+    const node = el("[data-cart-payment-preview]");
+    if (!node) return;
+    preview.totals.mercadopago.lines.forEach((line,index) => { const cell = el(`[data-cart-line="${index}"]`); if (cell) cell.textContent = line.is_quote ? "A cotizar" : formatMoney(line.line_total); });
+    node.innerHTML = '<p><strong>Productos por medio de pago, sin envío:</strong></p>' + Object.entries(preview.totals).map(([method, sum]) => `<div class="summary-row"><span>${PAYMENT_LABELS[method]}${preview.methods[method] ? "" : " (no disponible)"}</span><strong>${formatMoney(sum.total)}</strong></div>${sum.adjustment ? `<small>${sum.adjustment > 0 ? "Incluye recargo por Mercado Pago en productos seleccionados." : "Incluye descuento por medio de pago en productos seleccionados."}</small>` : ""}`).join("") + (preview.has_quote ? '<p>Importes parciales: faltan los productos a cotizar.</p>' : '');
+  } catch (error) {
+    if (sequence === previewSequence && el("[data-cart-payment-preview]")) el("[data-cart-payment-preview]").textContent = error.message;
+  }
 }
 
 bindEvents();

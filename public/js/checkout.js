@@ -1,3 +1,4 @@
+import { totalsHtml, PAYMENT_LABELS } from "./payment-ui.js";
 /**
  * Checkout de invitado: sin registro, con pago por Mercado Pago.
  *
@@ -22,6 +23,9 @@ const state = {
   delivery: "shipping",
   payment: { available: true, mode: "sandbox" },
   submitting: false,
+  method: "mercadopago",
+  preview: null,
+  previewSequence: 0,
 };
 
 const DEPARTMENTS = [
@@ -44,13 +48,7 @@ function shippingEstimate() {
 }
 
 function totals() {
-  const settings = state.settings || {};
-  const subtotal = estimateSubtotal(settings);
-  const shipping = shippingEstimate();
-  const taxRate = Number(settings.tax?.rate || 0);
-  const includeTax = settings.tax?.include_tax !== false;
-  const tax = includeTax ? 0 : Math.round(subtotal * (taxRate / 100));
-  return { subtotal, shipping, tax, taxRate, total: subtotal + shipping + tax };
+  return state.preview?.totals[state.method] || { subtotal: 0, shipping: 0, tax: 0, total: 0 };
 }
 
 function render() {
@@ -73,7 +71,7 @@ function render() {
   const hasQuote = cartHasQuotes();
   const sum = totals();
 
-  const lines = items.map((item) => {
+  const lines = items.map((item, index) => {
     const optionText = Object.entries(item.options || {})
       .map(([key, value]) => `${key}: ${value}`)
       .join(" · ");
@@ -84,7 +82,7 @@ function render() {
           ${optionText ? `<br><span style="font-size:0.8125rem;color:var(--color-muted);">${escapeHtml(optionText)}</span>` : ""}
           ${item.customization ? `<br><span style="font-size:0.8125rem;color:var(--color-muted);">${escapeHtml(item.customization)}</span>` : ""}
         </span>
-        <span style="white-space:nowrap;">
+        <span style="white-space:nowrap;" data-checkout-line="${index}">
           ${item.pricingMode === "quote"
             ? '<span class="price--quote">A cotizar</span>'
             : formatMoney(item.unitPrice * item.quantity)}
@@ -93,7 +91,7 @@ function render() {
   }).join("");
 
   clear(root).innerHTML = `
-    ${!state.payment.available
+    ${!state.preview || !Object.values(state.preview.methods).some(Boolean)
       ? `<div class="alert alert--warning">
            <strong>El pago en línea está temporalmente deshabilitado.</strong>
            Podés enviar tu consulta y te cotizamos por WhatsApp: <a data-business-whatsapp href="https://wa.me/59895010244">escribinos</a>.
@@ -186,6 +184,11 @@ function render() {
             </div>
           </section>
 
+          <section class="checkout-block" aria-labelledby="bloque-pago">
+            <h2 id="bloque-pago">Medio de pago</h2>
+            <div data-payment-options></div>
+            <p class="field__hint">Cada producto conserva su regla. El ajuste se aplica después del cupón y no incluye el envío. Los importes se redondean a pesos enteros.</p>
+          </section>
           <section class="checkout-block" aria-labelledby="bloque-notas">
             <div class="checkout-block__head">
               <span class="checkout-block__number" aria-hidden="true">3</span>
@@ -204,20 +207,17 @@ function render() {
             <h2 id="titulo-pedido" style="font-family:var(--font-body); font-size:1.0625rem;">Tu pedido</h2>
             <ul style="list-style:none; padding:0; margin:0 0 12px;">${lines}</ul>
 
-            <div class="summary-row"><span>Subtotal</span><strong data-sum-subtotal>${formatMoney(sum.subtotal)}</strong></div>
-            <div class="summary-row"><span>Envío</span><strong data-sum-shipping>${sum.shipping > 0 ? formatMoney(sum.shipping) : "Sin costo"}</strong></div>
-            ${sum.tax > 0 ? `<div class="summary-row"><span>IVA (${sum.taxRate}%)</span><strong>${formatMoney(sum.tax)}</strong></div>` : ""}
-            <div class="summary-row summary-row--total"><span>Total</span><strong data-sum-total>${formatMoney(sum.total)}</strong></div>
+            <div data-payment-summary aria-live="polite">Verificando importes…</div>
 
             ${getCouponCode()
               ? `<p style="font-size:0.8125rem;color:var(--color-muted); margin-bottom:8px;">Cupón aplicado: <strong>${escapeHtml(getCouponCode())}</strong></p>`
               : ""}
 
             <button class="btn btn--primary btn--block btn--lg" type="submit" data-submit>
-              ${hasQuote ? "Enviar mi consulta" : "Pagar con Mercado Pago"}
+              ${hasQuote ? "Enviar mi consulta" : "Confirmar pedido"}
             </button>
             <p style="font-size:0.8125rem; color:var(--color-muted); margin-top:12px;">
-              Al confirmar te redirigimos a Mercado Pago para completar la compra de forma segura.
+              Si elegís Mercado Pago te redirigimos para pagar. Para transferencia o contado recibirás las instrucciones y el pedido quedará pendiente de pago.
             </p>
             <p style="font-size:0.8125rem; color:var(--color-muted);">
               <a href="/condiciones">Ver condiciones de venta</a>
@@ -232,17 +232,33 @@ function render() {
  * Actualiza el resumen en el lugar, sin volver a dibujar el formulario:
  * así el cliente no pierde lo que ya escribió.
  */
-function updateSummary() {
-  const sum = totals();
-  const subtotalNode = el("[data-sum-subtotal]");
-  const shippingNode = el("[data-sum-shipping]");
-  const totalNode = el("[data-sum-total]");
-  const note = el("[data-shipping-note]");
-
-  if (subtotalNode) subtotalNode.textContent = formatMoney(sum.subtotal);
-  if (shippingNode) shippingNode.textContent = sum.shipping > 0 ? formatMoney(sum.shipping) : "Sin costo";
-  if (totalNode) totalNode.textContent = formatMoney(sum.total);
-  if (note) note.textContent = sum.shipping > 0 ? `Costo: ${formatMoney(sum.shipping)}` : "Envío sin costo";
+async function updateSummary() {
+  const sequence = ++state.previewSequence;
+  state.preview = null;
+  const button = el("[data-submit]");
+  if (button) button.disabled = true;
+  const summary = el("[data-payment-summary]");
+  if (summary) summary.textContent = "Verificando importes…";
+  try {
+    const preview = await api.previewCart({ items: toApiItems(), coupon_code: getCouponCode(), delivery_method: state.delivery });
+    if (sequence !== state.previewSequence) return;
+    state.preview = preview;
+    const enabled = Object.keys(preview.methods).filter(key => preview.methods[key]);
+    if (!enabled.includes(state.method)) state.method = enabled[0] || "mercadopago";
+    const options = el("[data-payment-options]");
+    options.innerHTML = Object.entries(preview.totals).filter(([method]) => preview.methods[method]).map(([method, sum]) => `<label class="delivery-option"><input type="radio" name="payment-method" data-payment-method value="${method}" ${state.method === method ? "checked" : ""}><span>${PAYMENT_LABELS[method]}: <strong>${formatMoney(sum.total)}</strong>${sum.adjustment ? `<small style="display:block">${sum.adjustment > 0 ? "Incluye recargo por Mercado Pago en los productos configurados." : "Incluye descuento en productos seleccionados."}</small>` : ""}</span></label>`).join("") || "<p>No hay medios de pago habilitados. Podés solicitar una cotización si tu pedido la requiere.</p>";
+    if (summary) summary.innerHTML = totalsHtml(totals(), { estimated: preview.has_quote });
+    totals().lines.forEach((line, index) => {
+      const node = el(`[data-checkout-line="${index}"]`);
+      if (node) node.textContent = line.is_quote ? "A cotizar" : formatMoney(line.line_total);
+    });
+    const note = el("[data-shipping-note]");
+    if (note) note.textContent = totals().shipping ? `Costo: ${formatMoney(totals().shipping)}` : "Envío sin costo";
+    if (button) { button.disabled = !enabled.length && !preview.has_quote; button.textContent = preview.has_quote ? "Solicitar cotización" : state.method === "mercadopago" ? "Pagar con Mercado Pago" : "Confirmar pedido pendiente de pago"; }
+  } catch (error) {
+    if (sequence !== state.previewSequence) return;
+    if (summary) summary.textContent = error.message || "No pudimos verificar el total. Volvé al carrito y revisá el cupón y los productos.";
+  }
 }
 
 function updateDeliveryFields() {
@@ -257,6 +273,8 @@ function updateDeliveryFields() {
 
 function bindEvents() {
   root?.addEventListener("change", (event) => {
+    const payment = event.target.closest("[data-payment-method]");
+    if (payment) { state.method = payment.value; updateSummary(); return; }
     const radio = event.target.closest("[data-delivery]");
     if (!radio) return;
     state.delivery = radio.value;
@@ -288,12 +306,14 @@ function collect(form) {
       department: value("departamento"),
     },
     notes: value("notas"),
+    payment_method: state.method,
+    expected_total: totals().total,
     coupon_code: getCouponCode(),
   };
 }
 
 async function submitOrder(form) {
-  if (state.submitting) return;
+  if (state.submitting || !state.preview) return;
 
   clearFormErrors(form);
   if (!form.checkValidity()) {
@@ -333,7 +353,7 @@ async function submitOrder(form) {
       state.submitting = false;
       if (button) {
         button.disabled = false;
-        button.textContent = "Pagar con Mercado Pago";
+        button.textContent = "Confirmar pedido";
       }
       return;
     }
@@ -343,10 +363,11 @@ async function submitOrder(form) {
     state.submitting = false;
     if (button) {
       button.disabled = false;
-      button.textContent = "Pagar con Mercado Pago";
+      button.textContent = "Confirmar pedido";
     }
     toast(error.message || "No pudimos completar tu pedido. Probá de nuevo.", "error");
     console.error(error);
+    await updateSummary();
   }
 }
 
@@ -365,6 +386,7 @@ async function load() {
   render();
   updateDeliveryFields();
   bindEvents();
+  if (readCart().length) await updateSummary();
 }
 
 load();

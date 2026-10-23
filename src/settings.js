@@ -1,3 +1,4 @@
+import { ValidationError, cleanText, cleanMultiline } from "./validate.js";
 import { pool } from "./db.js";
 
 /**
@@ -13,6 +14,7 @@ export const DEFAULT_SETTINGS = {
     name: "DM Comunicación Visual",
     tagline: "Hacemos que te vean.",
     legal_name: "",
+    tax_id: "",
     whatsapp: "59895010244",
     email: "",
     phone: "095 010 244",
@@ -59,6 +61,11 @@ export const DEFAULT_SETTINGS = {
     pickup_note: "Retiro sin costo en Rivera, Artigas 1636 Piso 1.",
     min_order: 0,
     max_qty_per_item: 1000,
+  },
+  payments: {
+    mercadopago_enabled: true,
+    transfer: { enabled: false, bank: "", holder: "", account: "", currency: "UYU", instructions: "" },
+    cash: { enabled: false, instructions: "" },
   },
   tax: {
     include_tax: true,
@@ -107,6 +114,14 @@ export async function getSettings({ fresh = false } = {}) {
 export async function updateSettings(patch) {
   const current = await getSettings({ fresh: true });
   const merged = deepMerge(current, patch || {});
+  const payments = merged.payments;
+  if (!payments || !payments.transfer || !payments.cash) throw new ValidationError("Configuración de pagos inválida.");
+  if (typeof payments.mercadopago_enabled !== "boolean" || typeof payments.transfer.enabled !== "boolean" || typeof payments.cash.enabled !== "boolean") throw new ValidationError("Indicá si cada medio de pago está habilitado.");
+  for (const key of ["bank", "holder", "account"]) payments.transfer[key] = cleanText(payments.transfer[key], { max: 160, min: payments.transfer.enabled ? 1 : 0, label: key });
+  if (payments.transfer.currency !== "UYU") throw new ValidationError("La cuenta para transferencias debe recibir pesos uruguayos (UYU).");
+  for (const method of ["transfer", "cash"]) payments[method].instructions = cleanMultiline(payments[method].instructions, { max: 1500 });
+  if (payments.cash.enabled && !payments.cash.instructions) throw new ValidationError("Indicá dónde y cuándo se paga en efectivo.");
+  for (const key of ["legal_name", "tax_id"]) merged.business[key] = cleanText(merged.business[key], { max: 160 });
   await pool.query(
     `INSERT INTO settings (key, value, updated_at)
      VALUES ('site', $1, NOW())
@@ -131,6 +146,7 @@ export function toPublicSettings(settings) {
     home: rest.home,
     checkout: rest.checkout,
     tax: rest.tax,
+    payments: { mercadopago_enabled: rest.payments.mercadopago_enabled, transfer: { enabled: rest.payments.transfer.enabled }, cash: { enabled: rest.payments.cash.enabled } },
     footer: rest.footer,
   };
 }

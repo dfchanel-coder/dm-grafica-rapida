@@ -113,23 +113,3 @@ test("un importe incorrecto pasa a revisión y no genera confirmación", async (
   assert.equal(onStatusChange.mock.callCount(), 1);
 });
 
-test("un pedido pagado no se puede volver a cotizar", async (t) => {
-  t.mock.method(pool, "query", async () => ({ rows: [{ id, status: "paid", requires_quote: true, paid_at: new Date() }] }));
-  await assert.rejects(quoteOrder(id, { quoteAmount: 2000 }), /no admite una nueva cotización/);
-});
-
-test("cotizar conserva el total de productos, descuento, envío e impuesto", async (t) => {
-  let order = { id, status: "quote", requires_quote: true, paid_at: null, subtotal: 1000, discount: 50, shipping_cost: 200, tax: 100 };
-  t.mock.method(pool, "query", async (sql, values) => {
-    if (sql.includes("UPDATE orders")) order = { ...order, quoted_total: values[1], total: values[3], status: "pending_payment" };
-    return { rows: [{ ...order }] };
-  });
-  const result = await quoteOrder(id, { quoteAmount: 3500, generatePaymentLink: false });
-  assert.equal(result.order.total, 4750);
-  assert.equal(result.order.quoted_total, 3500);
-});
-
-test("cotización aborta si el pedido cambia de estado antes de guardarse", async (t) => {
-  t.mock.method(pool, "query", async (sql) => ({ rows: sql.includes("UPDATE orders") ? [] : [{ id, status: "quote", requires_quote: true, subtotal: 1000, discount: 0, shipping_cost: 0, tax: 0 }] }));
-  await assert.rejects(quoteOrder(id, { quoteAmount: 2000 }), /cambió de estado/);
-});

@@ -4,12 +4,15 @@ import { test } from "node:test";
 import { PGlite } from "@electric-sql/pglite";
 
 process.env.DATABASE_URL = "postgresql://test:test@127.0.0.1:1/test";
-process.env.CHECKOUT_ENABLED = "false";
+process.env.CHECKOUT_ENABLED = "true";
+process.env.MERCADOPAGO_ACCESS_TOKEN = "TEST-fake";
+process.env.PUBLIC_BASE_URL = "https://example.com";
 const { pool } = await import("../src/db.js");
 const { prepareCart, createOrder, quoteOrder } = await import("../src/orders.js");
 const { applyPayment } = await import("../src/payments.js");
 
 test("SQL real: jerarquía controla compras, recargos y cotizaciones conservan totales", async (t) => {
+  t.mock.method(globalThis, "fetch", async () => ({ ok: true, json: async () => ({ id: crypto.randomUUID(), sandbox_init_point: "https://sandbox.mercadopago.com.uy/checkout" }) }));
   const db = new PGlite();
   t.after(() => db.close());
   const migrations = new URL("../migrations/", import.meta.url);
@@ -45,7 +48,7 @@ test("SQL real: jerarquía controla compras, recargos y cotizaciones conservan t
   const customer = { name: "Cliente de prueba", email: "cliente@example.com", phone: "099123456" };
   const created = await createOrder({ customer, items, delivery: { method: "pickup" } });
   assert.equal(created.order.total, 2500);
-  assert.equal(created.checkoutDisabled, true);
+  assert.ok(created.checkoutUrl);
   const persisted = (await db.query("SELECT unit_price, quantity, line_total FROM order_items WHERE order_id=$1", [created.order.id])).rows[0];
   assert.deepEqual(persisted, { unit_price: 1250, quantity: 2, line_total: 2500 });
 
@@ -63,7 +66,7 @@ test("SQL real: jerarquía controla compras, recargos y cotizaciones conservan t
   const second = await withCoupon();
   const count = async () => (await db.query("SELECT used_count FROM coupons WHERE code='UNICO'")).rows[0].used_count;
   assert.equal(await count(), 0, "crear o abandonar pedidos no consume usos");
-  const paymentFor = (order, id) => ({ id, external_reference: order.id, status: "approved", transaction_amount: order.total, currency_id: "UYU" });
+  const paymentFor = (order, id) => ({ id, external_reference: order.id, status: "approved", transaction_amount: order.total, currency_id: "UYU", metadata: { payment_revision: order.payment_revision } });
   assert.equal(await applyPayment(paymentFor(first.order, 101)), "applied");
   assert.equal(await count(), 1);
   assert.equal(await applyPayment(paymentFor(first.order, 101)), "ignored");

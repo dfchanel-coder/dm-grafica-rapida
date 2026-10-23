@@ -198,6 +198,8 @@ export function createAdminHandlers() {
     if (body.price !== undefined || !partial) {
       payload.price = cleanInteger(body.price ?? 0, { min: 0, max: 10_000_000, field: "price", label: "el precio" });
     }
+    if (body.payment_rule !== undefined || !partial) payload.payment_rule = oneOf(body.payment_rule || "none", ["none", "mp_surcharge", "cash_discount"], { field: "payment_rule", label: "la regla de pago" });
+    if (body.payment_percent !== undefined || !partial) payload.payment_percent = cleanInteger(body.payment_percent ?? 12, { min: 0, max: 100, field: "payment_percent", label: "el porcentaje" });
     if (body.compare_at_price !== undefined) {
       payload.compare_at_price = body.compare_at_price === null || body.compare_at_price === ""
         ? null
@@ -495,55 +497,32 @@ export function createAdminHandlers() {
   }
 
   async function updateOrder(req, res) {
-    const order = (await pool.query("SELECT * FROM orders WHERE id = $1", [req.params.id])).rows[0];
-    if (!order) return res.status(404).json({ error: "Pedido no encontrado." });
-
-    const changes = [];
-    const values = [];
-    let statusChanged = false;
-    let newStatus = order.status;
-
-    if (req.body?.status !== undefined) {
-      newStatus = oneOf(req.body.status, Object.keys(STATUS_LABELS), { field: "status", label: "el estado" });
-      if (newStatus !== order.status) {
-        changes.push(`status = $${values.length + 1}`);
-        values.push(newStatus);
-        statusChanged = true;
+    const client = await pool.connect();
+    let updated, statusChanged = false;
+    try {
+      await client.query("BEGIN");
+      const order = (await client.query("SELECT * FROM orders WHERE id = $1 FOR UPDATE", [req.params.id])).rows[0];
+      if (!order) throw new ValidationError("Pedido no encontrado.");
+      const status = req.body?.status === undefined ? order.status : oneOf(req.body.status, Object.keys(STATUS_LABELS), { label: "el estado" });
+      if (status !== order.status) {
+        const allowed = order.paid_at ? ["in_production", "ready", "delivered", "cancelled"] : ["cancelled"];
+        if (!allowed.includes(status) || order.status === "refunded") throw new ValidationError("Usá la confirmación de pago para registrar un cobro. No se puede asignar ese estado manualmente.");
       }
-    }
-    if (req.body?.internal_notes !== undefined) {
-      changes.push(`internal_notes = $${values.length + 1}`);
-      values.push(cleanMultiline(req.body.internal_notes, { max: 4000, field: "internal_notes", label: "las notas internas" }));
-    }
-    if (req.body?.estimated_delivery !== undefined) {
-      changes.push(`estimated_delivery = $${values.length + 1}`);
-      values.push(cleanText(req.body.estimated_delivery, { max: 120, field: "estimated_delivery", label: "la entrega estimada" }));
-    }
-    if (req.body?.customer_phone !== undefined) {
-      changes.push(`customer_phone = $${values.length + 1}`);
-      values.push(cleanText(req.body.customer_phone, { max: 40, field: "customer_phone", label: "el teléfono" }));
-    }
-
-    if (!changes.length) return res.json({ order });
-
-    values.push(req.params.id);
-    const result = await pool.query(
-      `UPDATE orders SET ${changes.join(", ")}, updated_at = NOW() WHERE id = $${values.length} RETURNING *`,
-      values,
-    );
-    await audit(req.admin.id, "update", "order", req.params.id, { status: newStatus });
-
-    if (statusChanged) {
-      await notifyOrderStatus(order.id, STATUS_LABELS[newStatus]);
-    }
-
-    return res.json({ order: result.rows[0] });
+      updated = (await client.query(`UPDATE orders SET status = $2, internal_notes = $3, estimated_delivery = $4, customer_phone = $5, updated_at = NOW() WHERE id = $1 RETURNING *`,
+        [order.id, status, cleanMultiline(req.body?.internal_notes ?? order.internal_notes, { max: 4000 }), cleanText(req.body?.estimated_delivery ?? order.estimated_delivery, { max: 120 }), cleanText(req.body?.customer_phone ?? order.customer_phone, { max: 40 })])).rows[0];
+      statusChanged = status !== order.status;
+      await client.query("COMMIT");
+    } catch (error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); }
+    await audit(req.admin.id, "update", "order", req.params.id, { status: updated.status });
+    if (statusChanged) await notifyOrderStatus(updated.id, STATUS_LABELS[updated.status]);
+    return res.json({ order: updated });
   }
 
   async function quoteOrderHandler(req, res) {
     try {
       const result = await quoteOrder(req.params.id, {
         quoteAmount: req.body?.quote_amount,
+        quoteItems: req.body?.quote_items,
         quoteNotes: req.body?.quote_notes,
         generatePaymentLink: req.body?.generate_payment_link !== false,
       });
