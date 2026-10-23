@@ -36,3 +36,11 @@ export function paymentRuleNote(product) {
     ? `${percent}% de descuento pagando por transferencia o contado, si están habilitados.`
     : product.payment_rule === "mp_surcharge" ? `Mercado Pago: recargo del ${percent}% sobre este producto.` : "";
 }
+
+export function paymentAdjustmentNote(sum) {
+  if (!sum.adjustment) return "";
+  const percentages = [...new Set(sum.lines.filter(line => line.payment_adjustment).map(line => Number(line.payment_percent)))].sort((a,b) => a-b).map(n => `${n}%`).join(" / ");
+  return sum.adjustment > 0
+    ? `Incluye recargo de ${percentages} por pago mediante Mercado Pago en los productos indicados.`
+    : `Incluye descuento de ${percentages} por transferencia o contado en los productos indicados.`;
+}

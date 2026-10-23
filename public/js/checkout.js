@@ -1,3 +1,4 @@
+import { paymentAdjustmentNote } from "./payment-pricing.js";
 import { totalsHtml, PAYMENT_LABELS } from "./payment-ui.js";
 /**
  * Checkout de invitado: sin registro, con pago por Mercado Pago.
@@ -91,12 +92,7 @@ function render() {
   }).join("");
 
   clear(root).innerHTML = `
-    ${!state.preview || !Object.values(state.preview.methods).some(Boolean)
-      ? `<div class="alert alert--warning">
-           <strong>El pago en línea está temporalmente deshabilitado.</strong>
-           Podés enviar tu consulta y te cotizamos por WhatsApp: <a data-business-whatsapp href="https://wa.me/59895010244">escribinos</a>.
-         </div>`
-      : ""}
+    <div class="alert alert--warning" data-payment-unavailable hidden>No hay medios de pago habilitados en este momento. Podés <a href="/contacto">contactarnos</a> para consultar.</div>
     ${hasQuote
       ? `<div class="alert alert--info">
            <strong>Tu pedido incluye productos a cotizar.</strong>
@@ -187,7 +183,7 @@ function render() {
           <section class="checkout-block" aria-labelledby="bloque-pago">
             <h2 id="bloque-pago">Medio de pago</h2>
             <div data-payment-options></div>
-            <p class="field__hint">Cada producto conserva su regla. El ajuste se aplica después del cupón y no incluye el envío. Los importes se redondean a pesos enteros.</p>
+            <p class="field__hint">Los descuentos y recargos corresponden a los productos indicados y se calculan después del cupón, sin incluir el envío. Los importes se redondean a pesos enteros.</p>
           </section>
           <section class="checkout-block" aria-labelledby="bloque-notas">
             <div class="checkout-block__head">
@@ -243,10 +239,12 @@ async function updateSummary() {
     const preview = await api.previewCart({ items: toApiItems(), coupon_code: getCouponCode(), delivery_method: state.delivery });
     if (sequence !== state.previewSequence) return;
     state.preview = preview;
+    const warning = el("[data-payment-unavailable]");
+    if (warning) warning.hidden = Object.values(preview.methods).some(Boolean);
     const enabled = Object.keys(preview.methods).filter(key => preview.methods[key]);
     if (!enabled.includes(state.method)) state.method = enabled[0] || "mercadopago";
     const options = el("[data-payment-options]");
-    options.innerHTML = Object.entries(preview.totals).filter(([method]) => preview.methods[method]).map(([method, sum]) => `<label class="delivery-option"><input type="radio" name="payment-method" data-payment-method value="${method}" ${state.method === method ? "checked" : ""}><span>${PAYMENT_LABELS[method]}: <strong>${formatMoney(sum.total)}</strong>${sum.adjustment ? `<small style="display:block">${sum.adjustment > 0 ? "Incluye recargo por Mercado Pago en los productos configurados." : "Incluye descuento en productos seleccionados."}</small>` : ""}</span></label>`).join("") || "<p>No hay medios de pago habilitados. Podés solicitar una cotización si tu pedido la requiere.</p>";
+    options.innerHTML = Object.entries(preview.totals).filter(([method]) => preview.methods[method]).map(([method, sum]) => `<label class="delivery-option"><input type="radio" name="payment-method" data-payment-method value="${method}" ${state.method === method ? "checked" : ""}><span>${PAYMENT_LABELS[method]}: <strong>${formatMoney(sum.total)}</strong>${sum.adjustment ? `<small style="display:block">${paymentAdjustmentNote(sum)}</small>` : ""}</span></label>`).join("") || "<p>No hay medios de pago habilitados. Podés solicitar una cotización si tu pedido la requiere.</p>";
     if (summary) summary.innerHTML = totalsHtml(totals(), { estimated: preview.has_quote });
     totals().lines.forEach((line, index) => {
       const node = el(`[data-checkout-line="${index}"]`);

@@ -289,3 +289,13 @@ El servidor calcula una versión del contenido de `public/` y `src/img/` al arra
 Los cupones consumen un uso al confirmar el pago, dentro de la misma transacción. Los pedidos abandonados no consumen usos y los webhooks repetidos no duplican el conteo. Si un pago llega después de agotarse o eliminarse su cupón, el pedido queda en revisión manual: comprobar el cobro en Mercado Pago y resolver con el cliente antes de producir. Los reembolsos no liberan usos. La migración `0008` recalcula el contador histórico según pedidos con pago confirmado; ejecutar las migraciones antes de arrancar esta versión.
 
 El administrador puede editar opciones de producto con formularios, conservando los identificadores de opciones y valores existentes. Los precios actuales quedan a cargo del administrador.
+
+## Precios por medio de pago
+
+En cada producto se elige una sola regla: precio único (predeterminada), recargo para Mercado Pago o descuento para transferencia/contado. El porcentaje es editable y empieza en 12%. No se modifican los precios existentes ni se activa una promoción general. Un descuento del 12% sobre $1.120 da $986: no revierte exactamente un recargo del 12% sobre $1.000.
+
+En Ajustes se habilitan los medios de pago y se cargan la cuenta bancaria y las instrucciones. Transferencia y contado empiezan desactivados; Mercado Pago también requiere su configuración de entorno. Los cupones se reparten primero entre las líneas; después se aplica la regla de cada producto, sin ajustar el envío. Se redondea a pesos enteros. Carrito y checkout muestran el importe por medio de pago antes de confirmar.
+
+Cada pedido conserva precios, reglas, impuestos e instrucciones bancarias. Cambiar luego un producto o una cuenta no altera pedidos anteriores. Las transferencias y el contado quedan pendientes hasta que el administrador verifica el ingreso y registra su referencia. Stock, cupón y auditoría se actualizan una sola vez. Los cambios de medio de pago requieren revisar el nuevo total; un cobro recibido desde una revisión anterior de Mercado Pago pasa a revisión manual.
+
+Ejecutar las migraciones 0009 y 0010 con el despliegue. Las pruebas automatizadas usan PostgreSQL embebido y respuestas simuladas de Mercado Pago y correo; no sustituyen la prueba integral con credenciales reales antes de habilitar cobros. Los datos legales se completan en Ajustes del negocio.

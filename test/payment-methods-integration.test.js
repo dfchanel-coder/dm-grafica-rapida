@@ -42,6 +42,16 @@ test("pagos por producto: SQL real, snapshots, confirmaciones, cotizaciones y ca
   await assert.rejects(createOrder({...args,paymentMethod:'cash'}),/no está disponible/);
   assert.equal((await db.query('SELECT count(*)::int AS n FROM orders')).rows[0].n,before);
  });
+ await t.test('recalcular conserva el orden de reparto del cupón aunque cambien los UUID de las líneas',async()=>{
+  await db.query("INSERT INTO coupons(code,discount_type,discount_value) VALUES('REDONDEO','fixed',1)");
+  await db.query('UPDATE products SET price=1004 WHERE id=ANY($1::uuid[])',[products.slice(0,2).map(p=>p.id)]);
+  const order=(await createOrder({...args,items:items.slice(0,2),couponCode:'REDONDEO',paymentMethod:'mercadopago'})).order;
+  await db.query("UPDATE order_items SET id=CASE WHEN payment_rule='none' THEN 'ffffffff-ffff-4fff-8fff-ffffffffffff'::uuid ELSE '00000000-0000-4000-8000-000000000001'::uuid END WHERE order_id=$1",[order.id]);
+  const options=await orderPaymentOptions(order.code,customer.email);
+  assert.equal(options.totals.mercadopago.total,order.total);
+  assert.equal(options.totals.mercadopago.lines[0].payment_rule,'none');
+  await db.query('UPDATE products SET price=1000 WHERE id=ANY($1::uuid[])',[products.slice(0,2).map(p=>p.id)]);
+ });
  let manual;
  await t.test('pedido conserva cuenta, regla y precio; correo incluye instrucciones',async()=>{
   manual=(await createOrder({...args,expectedTotal:2880})).order;

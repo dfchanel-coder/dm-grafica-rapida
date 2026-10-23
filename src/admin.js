@@ -492,6 +492,9 @@ export function createAdminHandlers() {
     const result = await pool.query("SELECT * FROM orders WHERE id = $1 OR code = $2", [req.params.id, req.params.id]);
     const order = result.rows[0];
     if (!order) return res.status(404).json({ error: "Pedido no encontrado." });
+    if (order.payment_confirmed_by) {
+      order.payment_confirmed_by_name = (await pool.query("SELECT name FROM admin_users WHERE id = $1", [order.payment_confirmed_by])).rows[0]?.name;
+    }
     const items = await getOrderItems(order.id);
     return res.json({ order, items, statusLabels: STATUS_LABELS });
   }

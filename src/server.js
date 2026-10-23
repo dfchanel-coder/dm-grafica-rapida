@@ -178,6 +178,7 @@ app.post("/api/orders", checkoutLimiter, async (req, res) => {
 });
 
 app.get("/api/orders/track", trackLimiter, async (req, res) => {
+  res.set("Cache-Control", "no-store");
   try {
     const order = await trackOrder(req.query.code || "", req.query.email || "");
     if (!order) {
@@ -191,6 +192,7 @@ app.get("/api/orders/track", trackLimiter, async (req, res) => {
 });
 
 app.post("/api/orders/reconcile", trackLimiter, async (req, res) => {
+  res.set("Cache-Control", "no-store");
   try {
     const result = await reconcileOrder(req.body?.code || "", req.body?.email || "");
     if (!result?.order) {

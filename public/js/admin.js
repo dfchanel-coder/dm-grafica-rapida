@@ -850,7 +850,7 @@ function renderOrderDetail(container, res) {
   });
   const paymentCard = document.createElement("section");
   paymentCard.className = "detail__card";
-  paymentCard.innerHTML = `<h4>Pago: ${escapeHtml(PAYMENT_LABELS[order.payment_provider] || order.payment_provider)}</h4>${instructionsHtml(order)}${order.payment_reference ? `<p>Referencia: ${escapeHtml(order.payment_reference)}</p>` : ""}${order.payment_confirmed_by ? `<p>Confirmado por administrador: ${escapeHtml(order.payment_confirmed_by)}</p>` : ""}${!order.paid_at && order.status === "pending_payment" && ["transfer", "cash"].includes(order.payment_provider) ? `<label class="field"><span class="field__label">Referencia del ingreso verificado</span><input class="input" id="manual-payment-reference" maxlength="200"></label><button class="btn btn--primary" id="manual-payment-confirm">Confirmar cobro de ${formatMoney(order.total)}</button><p class="admin-block__note">Verificá el ingreso real antes de confirmar. Un comprobante enviado no equivale a un pago verificado.</p>` : ""}`;
+  paymentCard.innerHTML = `<h4>Pago: ${escapeHtml(PAYMENT_LABELS[order.payment_provider] || order.payment_provider)}</h4>${instructionsHtml(order)}${order.payment_reference ? `<p>Referencia: ${escapeHtml(order.payment_reference)}</p>` : ""}${order.payment_confirmed_by ? `<p>Confirmado por administrador: ${escapeHtml(order.payment_confirmed_by_name || order.payment_confirmed_by)}</p>` : ""}${!order.paid_at && order.status === "pending_payment" && ["transfer", "cash"].includes(order.payment_provider) ? `<label class="field"><span class="field__label">Referencia del ingreso verificado</span><input class="input" id="manual-payment-reference" maxlength="200"></label><button class="btn btn--primary" id="manual-payment-confirm">Confirmar cobro de ${formatMoney(order.total)}</button><p class="admin-block__note">Verificá el ingreso real antes de confirmar. Un comprobante enviado no equivale a un pago verificado.</p>` : ""}`;
   grid.appendChild(paymentCard);
   grid.appendChild(stateCard);
   container.appendChild(grid);
@@ -891,6 +891,7 @@ function renderOrderDetail(container, res) {
   audit.innerHTML = `<div class="admin-block__head"><h3>Historial (auditoría)</h3><p class="admin-block__note">Eventos relacionados con este pedido</p></div>`;
   const ul = document.createElement("ul");
   ul.className = "timeline";
+  audit.appendChild(ul);
   container.appendChild(audit);
   loadOrderAudit(order.id, ul);
 

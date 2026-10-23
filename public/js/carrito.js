@@ -1,3 +1,4 @@
+import { paymentAdjustmentNote } from "./payment-pricing.js";
 import { PAYMENT_LABELS } from "./payment-pricing.js";
 /**
  * Carrito de compras.
@@ -308,6 +309,6 @@ export function renderCartDrawer(settings) {
   const paymentNode = foot.querySelector("[data-drawer-payments]");
   api.previewCart({ items: toApiItems(), coupon_code: getCouponCode(), delivery_method: "pickup" }).then(preview => {
     if (!paymentNode.isConnected) return;
-    paymentNode.innerHTML = Object.entries(preview.totals).map(([method, sum]) => `<div class="summary-row"><span>${PAYMENT_LABELS[method]}${preview.methods[method] ? "" : " (no disponible)"}</span><strong>${formatMoney(sum.total)}</strong></div>${sum.adjustment ? `<small>${sum.adjustment > 0 ? "Incluye recargo por Mercado Pago en productos seleccionados." : "Incluye descuento en productos seleccionados."}</small>` : ""}`).join("") + '<small>Sin envío. Los productos a cotizar se confirman después.</small>';
+    paymentNode.innerHTML = Object.entries(preview.totals).map(([method, sum]) => `<div class="summary-row"><span>${PAYMENT_LABELS[method]}${preview.methods[method] ? "" : " (no disponible)"}</span><strong>${formatMoney(sum.total)}</strong></div>${sum.adjustment ? `<small>${paymentAdjustmentNote(sum)}</small>` : ""}`).join("") + '<small>Sin envío. Los productos a cotizar se confirman después.</small>';
   }).catch(error => { if (paymentNode.isConnected) paymentNode.textContent = error.message; });
 }

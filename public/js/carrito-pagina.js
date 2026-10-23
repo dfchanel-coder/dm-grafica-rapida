@@ -1,3 +1,4 @@
+import { paymentAdjustmentNote } from "./payment-pricing.js";
 import { PAYMENT_LABELS } from "./payment-ui.js";
 /**
  * Página del carrito: listado de productos, cantidades, cupón y resumen.
@@ -185,7 +186,7 @@ async function previewMethods() {
     const node = el("[data-cart-payment-preview]");
     if (!node) return;
     preview.totals.mercadopago.lines.forEach((line,index) => { const cell = el(`[data-cart-line="${index}"]`); if (cell) cell.textContent = line.is_quote ? "A cotizar" : formatMoney(line.line_total); });
-    node.innerHTML = '<p><strong>Productos por medio de pago, sin envío:</strong></p>' + Object.entries(preview.totals).map(([method, sum]) => `<div class="summary-row"><span>${PAYMENT_LABELS[method]}${preview.methods[method] ? "" : " (no disponible)"}</span><strong>${formatMoney(sum.total)}</strong></div>${sum.adjustment ? `<small>${sum.adjustment > 0 ? "Incluye recargo por Mercado Pago en productos seleccionados." : "Incluye descuento por medio de pago en productos seleccionados."}</small>` : ""}`).join("") + (preview.has_quote ? '<p>Importes parciales: faltan los productos a cotizar.</p>' : '');
+    node.innerHTML = '<p><strong>Productos por medio de pago, sin envío:</strong></p>' + Object.entries(preview.totals).map(([method, sum]) => `<div class="summary-row"><span>${PAYMENT_LABELS[method]}${preview.methods[method] ? "" : " (no disponible)"}</span><strong>${formatMoney(sum.total)}</strong></div>${sum.adjustment ? `<small>${paymentAdjustmentNote(sum)}</small>` : ""}`).join("") + (preview.has_quote ? '<p>Importes parciales: faltan los productos a cotizar.</p>' : '');
   } catch (error) {
     if (sequence === previewSequence && el("[data-cart-payment-preview]")) el("[data-cart-payment-preview]").textContent = error.message;
   }

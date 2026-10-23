@@ -247,17 +247,17 @@ export async function createOrder({ customer, items, delivery, notes = "", coupo
     );
     order = insert.rows[0];
 
-    for (const line of lines) {
+    for (const [position, line] of lines.entries()) {
       await client.query(
         `INSERT INTO order_items (
            order_id, product_id, product_name, product_slug, unit_price, quantity,
-           options, customization, image_url, line_total, is_quote, payment_rule, payment_percent
-         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+           options, customization, image_url, line_total, is_quote, payment_rule, payment_percent, position
+         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
         [
           order.id, line.product_id, line.product_name, line.product_slug,
           line.unit_price, line.quantity,
           JSON.stringify(line.options), line.customization, line.image_url,
-          line.line_total, line.is_quote, line.payment_rule, line.payment_percent,
+          line.line_total, line.is_quote, line.payment_rule, line.payment_percent, position,
         ],
       );
     }
@@ -450,7 +450,7 @@ export async function getOrderById(id) {
 
 export async function getOrderItems(orderId) {
   const result = await pool.query(
-    "SELECT * FROM order_items WHERE order_id = $1 ORDER BY id",
+    "SELECT * FROM order_items WHERE order_id = $1 ORDER BY position, id",
     [orderId],
   );
   return result.rows;
@@ -554,7 +554,7 @@ export async function quoteOrder(orderId, { quoteAmount, quoteItems, quoteNotes 
     await client.query("BEGIN");
     const order = (await client.query("SELECT * FROM orders WHERE id = $1 FOR UPDATE", [orderId])).rows[0];
     if (!order || !order.requires_quote || order.paid_at || !["quote", "pending_payment", "failed"].includes(order.status)) throw new ValidationError("Este pedido no admite una nueva cotización.");
-    const lines = (await client.query("SELECT * FROM order_items WHERE order_id = $1 ORDER BY id", [orderId])).rows;
+    const lines = (await client.query("SELECT * FROM order_items WHERE order_id = $1 ORDER BY position, id", [orderId])).rows;
     const quotes = lines.filter(l => l.is_quote);
     let amounts;
     if (quoteItems && typeof quoteItems === "object" && !Array.isArray(quoteItems)) {
@@ -577,7 +577,7 @@ export async function quoteOrder(orderId, { quoteAmount, quoteItems, quoteNotes 
   } catch (error) { await client.query("ROLLBACK"); throw error; } finally { client.release(); }
   // El cliente ve la propuesta en seguimiento y elige el medio antes de pagar.
   let checkoutUrl = null;
-  if (generatePaymentLink && updated.payment_provider === "mercadopago" && checkoutEnabled()) checkoutUrl = await issuePaymentLink(updated);
+  if (generatePaymentLink && updated.payment_provider === "mercadopago" && paymentMethods(await getSettings({ fresh: true })).mercadopago) checkoutUrl = await issuePaymentLink(updated);
   await notifyPaymentInstructions(updated, { quote: true });
   return { order: await getOrderById(orderId), checkoutUrl };
 }
@@ -600,6 +600,7 @@ export async function previewCart({ items, couponCode = "", deliveryMethod = "sh
 }
 
 export async function issuePaymentLink(order) {
+  requirePaymentMethod(await getSettings({ fresh: true }), "mercadopago");
   const { preferenceId, checkoutUrl } = await createPreference({ order, customer: { name: order.customer_name, email: order.customer_email } });
   const saved = await pool.query(`UPDATE orders SET mp_preference_id = $2, updated_at = NOW()
     WHERE id = $1 AND payment_revision = $3 AND paid_at IS NULL AND status IN ('pending_payment','failed') AND payment_provider = 'mercadopago' RETURNING id`, [order.id, preferenceId, order.payment_revision]);
@@ -628,7 +629,7 @@ export async function changeOrderPayment({ code, email, method, expectedTotal, r
     const order = (await client.query("SELECT * FROM orders WHERE code = $1 AND lower(customer_email) = $2 FOR UPDATE", [cleanCode, cleanMail])).rows[0];
     if (!order || order.paid_at || !["pending_payment", "failed"].includes(order.status) || Number(revision) !== order.payment_revision) throw new ValidationError("El pedido cambió o ya no admite cambios. Actualizá su estado.");
     if (expectedTotal === undefined) throw new ValidationError("Revisá primero el total del medio de pago.");
-    const lines = (await client.query("SELECT * FROM order_items WHERE order_id = $1 ORDER BY id", [order.id])).rows;
+    const lines = (await client.query("SELECT * FROM order_items WHERE order_id = $1 ORDER BY position, id", [order.id])).rows;
     const totals = paymentTotals(lines, { method, discount: order.discount, shipping: order.shipping_cost, tax: order.tax_snapshot || {} });
     validateTotal(totals.total, expectedTotal);
     const snapshot = method === order.payment_provider ? order.payment_snapshot : paymentSnapshot(settings, method);
