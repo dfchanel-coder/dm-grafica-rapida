@@ -581,14 +581,18 @@ export function createAdminHandlers() {
     return res.json({ coupons: result.rows });
   }
 
+  function couponUseLimit(value) {
+    if (value == null || typeof value === "string" && value.trim() === "") return null;
+    if (typeof value !== "number" && typeof value !== "string") throw new ValidationError("El límite de usos debe ser un número entero o quedar vacío.", "max_uses");
+    return cleanInteger(Number(value), { min: 1, max: 1_000_000, field: "max_uses", label: "el límite de usos" });
+  }
+
   async function createCoupon(req, res) {
     const code = cleanText(req.body?.code, { max: 30, min: 2, field: "code", label: "el código" }).toUpperCase();
     const discountType = oneOf(req.body?.discount_type, ["percent", "fixed"], { field: "discount_type", label: "el tipo de descuento" });
     const discountValue = cleanInteger(req.body?.discount_value, { min: 1, max: 10_000_000, field: "discount_value", label: "el valor" });
     const minSubtotal = cleanInteger(req.body?.min_subtotal ?? 0, { min: 0, max: 10_000_000, field: "min_subtotal", label: "el mínimo" });
-    const maxUses = req.body?.max_uses === null || req.body?.max_uses === ""
-      ? null
-      : cleanInteger(req.body.max_uses, { min: 1, max: 1_000_000, field: "max_uses", label: "el límite de usos" });
+    const maxUses = couponUseLimit(req.body?.max_uses);
     const description = cleanText(req.body?.description, { max: 300, field: "description", label: "la descripción" });
 
     try {
@@ -622,7 +626,7 @@ export function createAdminHandlers() {
     }
     if (req.body?.max_uses !== undefined) {
       fields.push(`max_uses = $${values.length + 1}`);
-      values.push(req.body.max_uses === null ? null : cleanInteger(req.body.max_uses, { min: 1, max: 1_000_000, field: "max_uses", label: "el límite de usos" }));
+      values.push(couponUseLimit(req.body.max_uses));
     }
     if (!fields.length) return res.status(400).json({ error: "No hay nada que actualizar." });
 

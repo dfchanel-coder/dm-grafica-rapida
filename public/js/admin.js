@@ -1526,14 +1526,18 @@ function renderCoupons(container) {
   }
   wrap.appendChild(table);
   container.appendChild(wrap);
-  container.addEventListener("click", async (e) => {
+  container.onclick = async (e) => {
     if (e.target.id === "cup-new") {
       const code = prompt("Código del cupón (se convierte a mayúsculas)");
       if (!code) return;
-      const type = prompt("Tipo: percent o fixed", "percent");
-      const val = prompt("Valor");
+      const type = prompt("Tipo: percent (porcentaje) o fixed (monto en pesos)", "percent");
+      if (type === null) return;
+      const val = prompt("Valor del descuento (ejemplo: 10 para 10% o 100 para $100)");
+      if (val === null) return;
+      const maxUses = prompt("Máximo de usos totales. Dejá vacío para sin límite.", "");
+      if (maxUses === null) return;
       try {
-        await adminApi.createCoupon({ code, discount_type: type === "fixed" ? "fixed" : "percent", discount_value: Number(val || 0), min_subtotal: 0, active: true });
+        await adminApi.createCoupon({ code, discount_type: type === "fixed" ? "fixed" : "percent", discount_value: Number(val || 0), min_subtotal: 0, max_uses: maxUses.trim() || null, active: true });
         toast("Cupón creado.", "success");
         await loadCoupons();
       } catch (err) {
@@ -1547,15 +1551,18 @@ function renderCoupons(container) {
       if (!cup) return;
       const active = confirm("¿Cupón activo?");
       const val = prompt("Valor", cup.discount_value);
+      if (val === null) return;
+      const maxUses = prompt("Máximo de usos totales. Dejá vacío para sin límite.", cup.max_uses ?? "");
+      if (maxUses === null) return;
       try {
-        await adminApi.updateCoupon(cup.id, { active, discount_value: Number(val || cup.discount_value) });
+        await adminApi.updateCoupon(cup.id, { active, discount_value: Number(val || cup.discount_value), max_uses: maxUses.trim() || null });
         toast("Cupón actualizado.", "success");
         await loadCoupons();
       } catch (err) {
         toast(err?.message || "No pudimos guardar.", "error");
       }
     }
-  }, { once: true });
+  };
 }
 
 // ========================== AJUSTES ==========================
