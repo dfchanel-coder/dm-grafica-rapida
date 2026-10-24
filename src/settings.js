@@ -92,6 +92,7 @@ function deepMerge(base, patch) {
   if (!patch || typeof patch !== "object" || Array.isArray(patch)) return patch ?? base;
   const result = { ...base };
   for (const [key, value] of Object.entries(patch)) {
+    if (["__proto__", "constructor", "prototype"].includes(key)) throw new ValidationError("Claves de configuración no permitidas.");
     const current = base?.[key];
     if (value && typeof value === "object" && !Array.isArray(value) && current && typeof current === "object" && !Array.isArray(current)) {
       result[key] = deepMerge(current, value);

@@ -1,3 +1,6 @@
+import { securityAlert } from "./security-alerts.js";
+import { verifySecondFactor } from "./admin-mfa.js";
+import { consumeLoginLimit } from "./admin-security.js";
 import { pool } from "./db.js";
 import crypto from "node:crypto";
 import { getSettings, updateSettings, getAdminEmail } from "./settings.js";
@@ -62,28 +65,34 @@ export function createAdminHandlers() {
   async function login(req, res) {
     const email = String(req.body?.email || "").trim().toLowerCase();
     const password = String(req.body?.password || "");
-    if (!email || !password) {
+    if (!email || !password || email.length > 254 || password.length > 1024) {
       throw new ValidationError("Ingresá tu correo y tu contraseña.", "credentials");
     }
 
     const result = await pool.query(
-      "SELECT id, email, name, password_hash, active FROM admin_users WHERE lower(email) = $1",
+      "SELECT id, email, name, password_hash, active, role FROM admin_users WHERE lower(email) = $1",
       [email],
     );
     const admin = result.rows[0];
 
     // Se compara siempre, exista el usuario o no, para no filtrar por tiempo.
     const stored = admin?.password_hash || DUMMY_PASSWORD_HASH;
-    const valid = verifyPassword(password, stored) && Boolean(admin) && admin.active;
+    const passwordValid = await verifyPassword(password, stored) && Boolean(admin) && admin.active;
+    const valid = passwordValid && await verifySecondFactor(admin.id, req.body?.code);
 
     if (!valid) {
-      throw new ValidationError("Correo o contraseña incorrectos.", "credentials");
+      const underLimit = await consumeLoginLimit("account-failure", email, 15);
+      await audit(admin?.id || null, underLimit ? "login_failed" : "login_attack", "admin", admin?.id || null);
+      if (!underLimit && admin) await securityAlert("login_attack");
+      if (!underLimit) await new Promise(resolve => setTimeout(resolve, 750));
+      if (!underLimit) throw new ValidationError("Correo, contraseña o código de seguridad incorrectos. Demasiados intentos fallidos.", "credentials");
+      throw new ValidationError("Correo, contraseña o código de seguridad incorrectos.", "credentials");
     }
 
     await pool.query("UPDATE admin_users SET last_login_at = NOW() WHERE id = $1", [admin.id]);
     await audit(admin.id, "login", "admin", admin.id);
 
-    return { id: admin.id, email: admin.email, name: admin.name };
+    return { id: admin.id, email: admin.email, name: admin.name, role: admin.role };
   }
 
   async function session(req, res) {
@@ -391,6 +400,10 @@ export function createAdminHandlers() {
       fields.push(`parent_id = $${values.length + 1}`);
       values.push(parentId);
     }
+    if (req.body?.role !== undefined) {
+      fields.push(`role = $${values.length + 1}`);
+      values.push(oneOf(req.body.role, ["owner", "operator"], { field: "role", label: "el permiso" }));
+    }
     if (req.body?.name !== undefined) {
       fields.push(`name = $${values.length + 1}`);
       values.push(cleanText(req.body.name, { max: 100, min: 2, field: "name", label: "el nombre" }));
@@ -640,8 +653,11 @@ export function createAdminHandlers() {
   }
 
   async function updateSettingsHandler(req, res) {
+    const previous = await getSettings({ fresh: true });
     const settings = await updateSettings(req.body || {});
-    await audit(req.admin.id, "update", "settings", null);
+    const paymentsChanged = JSON.stringify(previous.payments) !== JSON.stringify(settings.payments);
+    await audit(req.admin.id, "update", "settings", null, { paymentsChanged });
+    if (paymentsChanged) await securityAlert("payment_settings");
     return res.json({ settings });
   }
 
@@ -674,7 +690,7 @@ export function createAdminHandlers() {
 
   async function listAdmins(req, res) {
     const result = await pool.query(
-      `SELECT id, email, name, active, created_at, last_login_at FROM admin_users ORDER BY created_at`,
+      `SELECT id, email, name, active, role, created_at, last_login_at FROM admin_users ORDER BY created_at`,
     );
     return res.json({ admins: result.rows });
   }
@@ -684,16 +700,18 @@ export function createAdminHandlers() {
     const name = cleanText(req.body?.name, { max: 100, min: 2, field: "name", label: "el nombre" });
     const password = String(req.body?.password || "");
     if (!email || !email.includes("@")) return res.status(400).json({ error: "El correo no es válido." });
-    if (password.length < 10) {
+    if (password.length < 10 || password.length > 1024) {
       return res.status(400).json({ error: "La contraseña debe tener al menos 10 caracteres." });
     }
 
+    const role = oneOf(req.body?.role || "operator", ["owner", "operator"], { field: "role", label: "el permiso" });
     try {
       const result = await pool.query(
-        `INSERT INTO admin_users (email, name, password_hash) VALUES ($1, $2, $3) RETURNING id, email, name, active, created_at`,
-        [email, name, hashPassword(password)],
+        `INSERT INTO admin_users (email, name, password_hash, role) VALUES ($1, $2, $3, $4) RETURNING id, email, name, active, created_at`,
+        [email, name, hashPassword(password), role],
       );
-      await audit(req.admin.id, "create", "admin_user", result.rows[0].id, { email });
+      await audit(req.admin.id, "create", "admin_user", result.rows[0].id, { email, role });
+      await securityAlert("admin_changed");
       return res.status(201).json({ admin: result.rows[0] });
     } catch (error) {
       if (error?.code === "23505") return res.status(409).json({ error: "Ya existe un administrador con ese correo." });
@@ -702,8 +720,15 @@ export function createAdminHandlers() {
   }
 
   async function updateAdmin(req, res) {
+    if (req.params.id === req.admin.id && (req.body?.active !== undefined && !cleanBoolean(req.body.active, true) || req.body?.role && req.body.role !== "owner")) {
+      return res.status(400).json({ error: "No podés desactivar tu propia cuenta ni reducir tus propios permisos." });
+    }
     const fields = [];
     const values = [];
+    if (req.body?.role !== undefined) {
+      fields.push(`role = $${values.length + 1}`);
+      values.push(oneOf(req.body.role, ["owner", "operator"], { field: "role", label: "el permiso" }));
+    }
     if (req.body?.name !== undefined) {
       fields.push(`name = $${values.length + 1}`);
       values.push(cleanText(req.body.name, { max: 100, min: 2, field: "name", label: "el nombre" }));
@@ -714,7 +739,7 @@ export function createAdminHandlers() {
     }
     if (req.body?.password) {
       const password = String(req.body.password);
-      if (password.length < 10) {
+      if (password.length < 10 || password.length > 1024) {
         return res.status(400).json({ error: "La contraseña debe tener al menos 10 caracteres." });
       }
       fields.push(`password_hash = $${values.length + 1}`);
@@ -733,7 +758,8 @@ export function createAdminHandlers() {
     if (req.body?.password) {
       await destroyAdminSessionsFor(req.params.id);
     }
-    await audit(req.admin.id, "update", "admin_user", req.params.id);
+    await audit(req.admin.id, "update", "admin_user", req.params.id, { role: req.body?.role, active: req.body?.active, passwordChanged: Boolean(req.body?.password) });
+    await securityAlert("admin_changed");
     return res.json({ admin: result.rows[0] });
   }
 

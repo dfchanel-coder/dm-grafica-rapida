@@ -47,8 +47,8 @@ async function main() {
 
   const passwordHash = hashPassword(input.password);
   const result = await pool.query(
-    `INSERT INTO admin_users (email, name, password_hash, active)
-     VALUES ($1, $2, $3, true)
+    `INSERT INTO admin_users (email, name, password_hash, active, role)
+     VALUES ($1, $2, $3, true, 'owner')
      ON CONFLICT (email) DO UPDATE
         SET password_hash = EXCLUDED.password_hash,
             name = EXCLUDED.name,

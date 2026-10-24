@@ -1,3 +1,4 @@
+import { promisify } from "node:util";
 import crypto from "node:crypto";
 
 import { pool } from "./db.js";
@@ -23,12 +24,13 @@ export function hashPassword(password) {
   return `scrypt$${salt.toString("hex")}$${hash.toString("hex")}`;
 }
 
-export function verifyPassword(password, stored) {
+const scryptAsync = promisify(crypto.scrypt);
+export async function verifyPassword(password, stored) {
   try {
     const [scheme, saltHex, hashHex] = String(stored || "").split("$");
     if (scheme !== "scrypt" || !saltHex || !hashHex) return false;
     const expected = Buffer.from(hashHex, "hex");
-    const actual = crypto.scryptSync(password, Buffer.from(saltHex, "hex"), expected.length, SCRYPT_PARAMS);
+    const actual = await scryptAsync(password, Buffer.from(saltHex, "hex"), expected.length, SCRYPT_PARAMS);
     return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
   } catch {
     return false;
@@ -64,8 +66,8 @@ export async function createAdminSession(adminId, { userAgent = "", ip = "" } = 
 
   await pool.query(
     `INSERT INTO admin_sessions
-       (admin_id, token_hash, csrf_token, user_agent, ip, expires_at)
-     VALUES ($1, $2, $3, $4, $5, $6)`,
+       (admin_id, token_hash, csrf_token, user_agent, ip, expires_at, reauthenticated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
     [adminId, tokenHash, csrfToken, String(userAgent).slice(0, 300), String(ip).slice(0, 80), expiresAt],
   );
 
@@ -106,8 +108,8 @@ export async function readAdminSession(req) {
   if (!token) return null;
 
   const result = await pool.query(
-    `SELECT s.id AS session_id, s.csrf_token, s.expires_at,
-            a.id AS admin_id, a.email, a.name, a.active
+    `SELECT s.id AS session_id, s.csrf_token, s.expires_at, s.reauthenticated_at,
+            a.id AS admin_id, a.email, a.name, a.active, a.role
        FROM admin_sessions s
        JOIN admin_users a ON a.id = s.admin_id
       WHERE s.token_hash = $1`,
@@ -128,7 +130,8 @@ export async function readAdminSession(req) {
     token,
     sessionId: row.session_id,
     csrfToken: row.csrf_token,
-    admin: { id: row.admin_id, email: row.email, name: row.name },
+    reauthenticatedAt: row.reauthenticated_at,
+    admin: { id: row.admin_id, email: row.email, name: row.name, role: row.role },
   };
 }
 

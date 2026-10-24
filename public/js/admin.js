@@ -1,3 +1,4 @@
+import { openSecuritySettings, editAdminAccount } from "./admin-security-ui.js";
 import { paymentTotals } from "./payment-pricing.js";
 import { PAYMENT_LABELS, instructionsHtml } from "./payment-ui.js";
 import { productOptionsEditor } from "./product-options-editor.js";
@@ -305,6 +306,15 @@ if (sidebar) {
 }
 
 function setUserUI(adminUser) {
+  navLinks.forEach(link => {
+    const restricted = ["#ajustes", "#correos", "#auditoria", "#administradores"].includes(link.getAttribute("href"));
+    link.hidden = restricted && adminUser?.role !== "owner";
+  });
+  if (logoutButton && !el("#security-settings")) {
+    const button = document.createElement("button"); button.id = "security-settings"; button.type = "button"; button.className = "btn btn--secondary"; button.textContent = "Seguridad de mi cuenta";
+    button.addEventListener("click", () => openSecuritySettings().catch(error => toast(error.message, "error")));
+    logoutButton.before(button);
+  }
   if (adminName) adminName.textContent = adminUser?.name || adminUser?.email || "";
   if (adminAvatar) {
     adminAvatar.textContent = initials(adminUser?.name || adminUser?.email || "DM");
@@ -326,12 +336,14 @@ async function handleLogin(e) {
   const email = loginEmail?.value || "";
   const password = loginPassword?.value || "";
   try {
-    const res = await adminApi.login(email, password);
+    const res = await adminApi.login(email, password, el("#login-code")?.value || "");
     if (res?.csrfToken) {
       setCsrfToken(res.csrfToken);
       state.csrfToken = res.csrfToken;
     }
     state.admin = res?.admin || null;
+    if (loginPassword) loginPassword.value = "";
+    if (el("#login-code")) el("#login-code").value = "";
     setUserUI(state.admin);
     if (loginView) loginView.hidden = true;
     if (appView) appView.hidden = false;
@@ -358,14 +370,14 @@ if (logoutButton) {
   logoutButton.addEventListener("click", async () => {
     try {
       await adminApi.logout();
-    } catch {}
+    } catch (error) { toast(error.message || "No se pudo cerrar la sesión. Intentá de nuevo.", "error"); return; }
     setCsrfToken(null);
     state.admin = null;
     if (appView) appView.hidden = true;
     if (loginView) loginView.hidden = false;
     if (loginEmail) loginEmail.value = "";
     if (loginPassword) loginPassword.value = "";
-    location.hash = "";
+    location.replace("/admin");
   });
 }
 
@@ -450,7 +462,7 @@ async function bootPanel() {
     announce("Cargando información del panel...");
     const [overviewRes, settingsRes, paymentRes] = await Promise.allSettled([
       adminApi.overview(),
-      adminApi.settings(),
+      state.admin?.role === "owner" ? adminApi.settings() : api.publicSettings(),
       api.paymentStatus(),
     ]);
     if (overviewRes.status === "fulfilled") state.overview = overviewRes.value;
@@ -510,7 +522,7 @@ async function loadDashboard() {
       state.overview = res;
     }
     if (!state.settings) {
-      const res = await adminApi.settings();
+      const res = await (state.admin?.role === "owner" ? adminApi.settings() : api.publicSettings());
       state.settings = res?.settings || res;
     }
     renderDashboard(container);
@@ -850,7 +862,7 @@ function renderOrderDetail(container, res) {
   });
   const paymentCard = document.createElement("section");
   paymentCard.className = "detail__card";
-  paymentCard.innerHTML = `<h4>Pago: ${escapeHtml(PAYMENT_LABELS[order.payment_provider] || order.payment_provider)}</h4>${instructionsHtml(order)}${order.payment_reference ? `<p>Referencia: ${escapeHtml(order.payment_reference)}</p>` : ""}${order.payment_confirmed_by ? `<p>Confirmado por administrador: ${escapeHtml(order.payment_confirmed_by_name || order.payment_confirmed_by)}</p>` : ""}${!order.paid_at && order.status === "pending_payment" && ["transfer", "cash"].includes(order.payment_provider) ? `<label class="field"><span class="field__label">Referencia del ingreso verificado</span><input class="input" id="manual-payment-reference" maxlength="200"></label><button class="btn btn--primary" id="manual-payment-confirm">Confirmar cobro de ${formatMoney(order.total)}</button><p class="admin-block__note">Verificá el ingreso real antes de confirmar. Un comprobante enviado no equivale a un pago verificado.</p>` : ""}`;
+  paymentCard.innerHTML = `<h4>Pago: ${escapeHtml(PAYMENT_LABELS[order.payment_provider] || order.payment_provider)}</h4>${instructionsHtml(order)}${order.payment_reference ? `<p>Referencia: ${escapeHtml(order.payment_reference)}</p>` : ""}${order.payment_confirmed_by ? `<p>Confirmado por administrador: ${escapeHtml(order.payment_confirmed_by_name || order.payment_confirmed_by)}</p>` : ""}${state.admin?.role === "owner" && !order.paid_at && order.status === "pending_payment" && ["transfer", "cash"].includes(order.payment_provider) ? `<label class="field"><span class="field__label">Referencia del ingreso verificado</span><input class="input" id="manual-payment-reference" maxlength="200"></label><button class="btn btn--primary" id="manual-payment-confirm">Confirmar cobro de ${formatMoney(order.total)}</button><p class="admin-block__note">Verificá el ingreso real antes de confirmar. Un comprobante enviado no equivale a un pago verificado.</p>` : ""}`;
   grid.appendChild(paymentCard);
   grid.appendChild(stateCard);
   container.appendChild(grid);
@@ -1558,7 +1570,7 @@ async function loadSettings() {
   showSkeleton(container);
   try {
     if (!state.settings) {
-      const res = await adminApi.settings();
+      const res = await (state.admin?.role === "owner" ? adminApi.settings() : api.publicSettings());
       state.settings = res?.settings || res;
     }
     renderSettings(container);
@@ -1789,49 +1801,14 @@ function renderAdmins(container) {
   }
   wrap.appendChild(table);
   container.appendChild(wrap);
-  container.addEventListener("click", async (e) => {
-    if (e.target.id === "adm-new") {
-      const name = prompt("Nombre");
-      if (!name) return;
-      const email = prompt("Correo");
-      if (!email) return;
-      const pass = prompt("Contraseña (mínimo 10 caracteres)");
-      if (!pass) return;
-      try {
-        await adminApi.createAdmin({ name, email, password: pass });
-        toast("Administrador creado.", "success");
-        await loadAdmins();
-      } catch (err) {
-        toast(err?.message || "No pudimos crear.", "error");
-      }
-      return;
-    }
-    const btn = e.target.closest("button[data-act='edit-adm']");
-    if (btn) {
-      const adm = state.admins.find((a) => a.id === btn.dataset.id);
-      if (!adm) return;
-      const active = confirm("¿Administrador activo?");
-      const change = confirm("¿Cambiar contraseña?");
-      let payload = { active };
-      if (change) {
-        const pass = prompt("Nueva contraseña (mínimo 10 caracteres)");
-        if (!pass) return;
-        payload.password = pass;
-        const ok = await confirmDialog("Cambiar la contraseña cerrará las sesiones de este administrador (incluida la propia si es el mismo usuario). ¿Continuar?", { title: "Cambiar contraseña", danger: true, confirmText: "Continuar" });
-        if (!ok) return;
-      }
-      try {
-        await adminApi.updateAdmin(adm.id, payload);
-        toast("Administrador actualizado.", "success");
-        if (change && adm.id === state.admin?.id) {
-          toast("Tu sesión se cerrará. Volvé a iniciar sesión.", "error");
-          setTimeout(() => location.reload(), 1500);
-          return;
-        }
-        await loadAdmins();
-      } catch (err) {
-        toast(err?.message || "No pudimos guardar.", "error");
-      }
-    }
-  }, { once: true });
+  container.addEventListener("click", async (event) => {
+    const button = event.target.closest("button");
+    if (!button) return;
+    const account = button.dataset.act === "edit-adm" ? state.admins.find(a => a.id === button.dataset.id) : null;
+    if (button.id !== "adm-new" && !account) return;
+    try {
+      const changed = await editAdminAccount(account, state.admin);
+      if (changed) { toast("Administrador guardado.", "success"); await loadAdmins(); }
+    } catch (error) { toast(error.message, "error"); }
+  });
 }

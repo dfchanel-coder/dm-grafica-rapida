@@ -1,3 +1,6 @@
+import sharp from "sharp";
+import { randomUUID } from "node:crypto";
+
 /**
  * Almacenamiento de imágenes en Supabase Storage.
  *
@@ -51,17 +54,22 @@ export function objectPathFromUrl(value) {
   return value.slice(prefix.length);
 }
 
-function safeFilename(originalName = "imagen") {
-  const extension = String(originalName).split(".").pop().toLowerCase().replace(/[^a-z0-9]/g, "");
-  const base = String(originalName)
-    .replace(/\.[^.]+$/, "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60) || "imagen";
-  return `${base}.${extension || "jpg"}`;
+// Decodifica el contenido completo y genera una imagen nueva sin metadatos.
+export async function sanitizeImage(buffer, contentType) {
+  if (!buffer?.length || buffer.length > MAX_IMAGE_BYTES || !ALLOWED_TYPES[contentType]) {
+    throw new Error("Usá una imagen JPG, PNG, WEBP, AVIF o GIF de hasta 4 MB.");
+  }
+  try {
+    const image = sharp(buffer, { failOn: "warning", limitInputPixels: 25_000_000 });
+    const metadata = await image.metadata();
+    const formats = { jpeg: "image/jpeg", png: "image/png", webp: "image/webp", heif: "image/avif", gif: "image/gif" };
+    if (formats[metadata.format] !== contentType || !metadata.width || !metadata.height || (metadata.pages || 1) > 1) throw new Error("format");
+    const clean = await image.rotate().resize({ width: 3000, height: 3000, fit: "inside", withoutEnlargement: true }).webp({ quality: 90 }).toBuffer();
+    if (clean.length > MAX_IMAGE_BYTES) throw new Error("size");
+    return clean;
+  } catch {
+    throw new Error("La imagen no es válida, supera 25 megapíxeles o es animada. Exportala como JPG, PNG o WEBP estático e intentá de nuevo.");
+  }
 }
 
 /**
@@ -83,17 +91,18 @@ export async function uploadImage({ buffer, filename, contentType }) {
     throw new Error("Formato no admitido. Usá JPG, PNG, WEBP, AVIF o GIF.");
   }
 
+  const cleanBuffer = await sanitizeImage(buffer, contentType);
   const { url, bucket } = config();
-  const objectPath = `catalogo/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeFilename(filename)}.${extension}`;
+  const objectPath = `catalogo/${randomUUID()}.webp`;
 
   const response = await fetch(`${url}/storage/v1/object/${bucket}/${objectPath}`, {
     method: "POST",
     headers: headers({
-      "Content-Type": contentType,
+      "Content-Type": "image/webp",
       "x-upsert": "false",
       "cache-control": "31536000",
     }),
-    body: buffer,
+    body: cleanBuffer,
     signal: AbortSignal.timeout(30_000),
   });
 

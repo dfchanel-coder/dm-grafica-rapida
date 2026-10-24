@@ -1,3 +1,4 @@
+import { confirmIdentity } from "./admin-identity.js";
 /**
  * Cliente HTTP del sitio.
  * Un único punto para talking con la API: errores homogeneousos y simples.
@@ -11,7 +12,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request(path, { method = "GET", body, headers = {}, admin = false } = {}) {
+async function request(path, { method = "GET", body, headers = {}, admin = false, retried = false } = {}) {
   const options = {
     method,
     headers: { Accept: "application/json", ...headers },
@@ -42,6 +43,13 @@ async function request(path, { method = "GET", body, headers = {}, admin = false
     ? await response.json().catch(() => ({}))
     : {};
 
+  if (admin && !retried && response.status === 403 && payload.code === "reauth_required") {
+    const security = await request("/api/admin/mfa");
+    await confirmIdentity(async (password, code) => {
+      await request("/api/admin/reauth", { method: "POST", body: { password, code }, admin: true, retried: true });
+    }, security);
+    return request(path, { method, body, headers, admin, retried: true });
+  }
   if (!response.ok) {
     throw new ApiError(payload.error || "Ocurrió un error. Probá de nuevo.", response.status);
   }
@@ -114,7 +122,11 @@ export const api = {
 
 export const adminApi = {
   session: () => request("/api/admin/session"),
-  login: (email, password) => request("/api/admin/login", { method: "POST", body: { email, password } }),
+  mfaStatus: () => request("/api/admin/mfa"),
+  mfaSetup: () => request("/api/admin/mfa/setup", { method: "POST", admin: true }),
+  mfaEnable: (code) => request("/api/admin/mfa/enable", { method: "POST", body: { code }, admin: true }),
+  mfaDisable: () => request("/api/admin/mfa/disable", { method: "POST", admin: true }),
+  login: (email, password, code) => request("/api/admin/login", { method: "POST", body: { email, password, code } }),
   logout: () => request("/api/admin/logout", { method: "POST", admin: true }),
 
   overview: () => request("/api/admin/overview"),

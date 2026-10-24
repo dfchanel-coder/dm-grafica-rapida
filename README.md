@@ -299,3 +299,7 @@ En Ajustes se habilitan los medios de pago y se cargan la cuenta bancaria y las 
 Cada pedido conserva precios, reglas, impuestos e instrucciones bancarias. Cambiar luego un producto o una cuenta no altera pedidos anteriores. Las transferencias y el contado quedan pendientes hasta que el administrador verifica el ingreso y registra su referencia. Stock, cupón y auditoría se actualizan una sola vez. Los cambios de medio de pago requieren revisar el nuevo total; un cobro recibido desde una revisión anterior de Mercado Pago pasa a revisión manual.
 
 Ejecutar las migraciones 0009 y 0010 con el despliegue. Las pruebas automatizadas usan PostgreSQL embebido y respuestas simuladas de Mercado Pago y correo; no sustituyen la prueba integral con credenciales reales antes de habilitar cobros. Los datos legales se completan en Ajustes del negocio.
+
+## Seguridad y configuración del titular
+
+La guía [SEGURIDAD-PASO-A-PASO.md](SEGURIDAD-PASO-A-PASO.md) detalla la migración 0011, conservación del acceso actual, roles, segundo factor opcional, alertas y verificaciones de Render/Supabase. No se activa MFA ni se alteran permisos de cuentas existentes al desplegar.

@@ -945,3 +945,7 @@ body.is-modal-open { overflow: hidden; }
 .admin-section__head { margin-bottom: 28px; }
 .admin-block, .admin-form, .detail__card, .admin-toolbar, .table-scroll { box-shadow: 0 2px 5px rgb(11 15 20 / 2%); border-radius: 14px; }
 .admin-nav__link[aria-current="page"] { border-left-color: #f97316; }
+
+.identity-dialog { width: min(92vw, 460px); border: 1px solid #dce2ec; border-radius: 16px; padding: 28px; color: #0b0f14; }
+.identity-dialog::backdrop { background: rgb(11 15 20 / 55%); }
+.identity-dialog [role="alert"] { color: #b42318; }

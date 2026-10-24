@@ -1,3 +1,5 @@
+import { mfaStatus, beginMfa, enableMfa, disableMfa } from "./admin-mfa.js";
+import { persistentLoginLimit, requireOwner, requireRecentAuth, reauthenticate } from "./admin-security.js";
 import { fillBusiness, fillCatalog, productFallback } from "./page-content.js";
 import "dotenv/config";
 
@@ -272,7 +274,9 @@ app.post(
 
 const admin = createAdminHandlers();
 
-app.post("/api/admin/login", loginLimiter, async (req, res) => {
+app.use("/api/admin", (_req, res, next) => { res.set("Cache-Control", "no-store"); next(); });
+
+app.post("/api/admin/login", loginLimiter, persistentLoginLimit, async (req, res) => {
   const { createAdminSession, setSessionCookie } = await import("./auth.js");
   try {
     const adminUser = await admin.login(req, res);
@@ -302,6 +306,13 @@ app.post("/api/admin/logout", requireAdmin, requireCsrf, admin.logout);
 
 const adminRead = [requireAdmin];
 const adminWrite = [requireAdmin, requireCsrf, adminWriteLimiter];
+const ownerRead = [requireAdmin, requireOwner];
+const sensitiveWrite = [...adminWrite, requireOwner, requireRecentAuth];
+app.post("/api/admin/reauth", adminWrite, reauthenticate);
+app.get("/api/admin/mfa", adminRead, mfaStatus);
+app.post("/api/admin/mfa/setup", adminWrite, requireRecentAuth, beginMfa);
+app.post("/api/admin/mfa/enable", adminWrite, requireRecentAuth, limiter(15 * 60_000, 8, "Esperá antes de volver a probar el código."), enableMfa);
+app.post("/api/admin/mfa/disable", adminWrite, requireRecentAuth, disableMfa);
 
 app.get("/api/admin/overview", adminRead, admin.overview);
 app.get("/api/admin/products", adminRead, admin.listProducts);
@@ -317,7 +328,7 @@ app.delete("/api/admin/categories/:id", adminWrite, admin.deleteCategory);
 app.get("/api/admin/orders", adminRead, admin.listOrders);
 app.get("/api/admin/orders/:id", adminRead, admin.getOrder);
 app.patch("/api/admin/orders/:id", adminWrite, admin.updateOrder);
-app.post("/api/admin/orders/:id/confirm-payment", adminWrite, async (req, res) => {
+app.post("/api/admin/orders/:id/confirm-payment", sensitiveWrite, async (req, res) => {
   res.json(await confirmManualPayment(req.params.id, req.admin.id, { reference: req.body?.reference, revision: req.body?.revision, expectedTotal: req.body?.expected_total }));
 });
 app.post("/api/admin/orders/:id/quote", adminWrite, admin.quoteOrderHandler);
@@ -327,13 +338,13 @@ app.get("/api/admin/coupons", adminRead, admin.listCoupons);
 app.post("/api/admin/coupons", adminWrite, admin.createCoupon);
 app.put("/api/admin/coupons/:id", adminWrite, admin.updateCoupon);
 app.delete("/api/admin/coupons/:id", adminWrite, admin.deleteCoupon);
-app.get("/api/admin/settings", adminRead, admin.getSettingsHandler);
-app.put("/api/admin/settings", adminWrite, admin.updateSettingsHandler);
-app.get("/api/admin/emails", adminRead, admin.listEmails);
-app.get("/api/admin/audit", adminRead, admin.listAudit);
-app.get("/api/admin/admins", adminRead, admin.listAdmins);
-app.post("/api/admin/admins", adminWrite, admin.createAdmin);
-app.put("/api/admin/admins/:id", adminWrite, admin.updateAdmin);
+app.get("/api/admin/settings", ownerRead, admin.getSettingsHandler);
+app.put("/api/admin/settings", sensitiveWrite, admin.updateSettingsHandler);
+app.get("/api/admin/emails", ownerRead, admin.listEmails);
+app.get("/api/admin/audit", ownerRead, admin.listAudit);
+app.get("/api/admin/admins", ownerRead, admin.listAdmins);
+app.post("/api/admin/admins", sensitiveWrite, admin.createAdmin);
+app.put("/api/admin/admins/:id", sensitiveWrite, admin.updateAdmin);
 
 /* -------------------------------------------------------------------------- */
 /* Páginas públicas                                                            */
@@ -608,6 +619,7 @@ app.use((error, _req, res, _next) => {
   console.error("Error no controlado:", error?.code || error?.name || "Error", "-", error?.message || "(sin mensaje)");
   if (res.headersSent) return;
   if (error instanceof ValidationError) return res.status(400).json({ error: error.message });
+  if (error?.code === "23514") return res.status(400).json({ error: "El cambio no cumple las reglas de seguridad o validación. Conservá al menos un administrador activo con acceso completo." });
   if (error?.code === "LIMIT_FILE_SIZE") {
     return res.status(413).json({ error: "La imagen supera los 4 MB." });
   }
